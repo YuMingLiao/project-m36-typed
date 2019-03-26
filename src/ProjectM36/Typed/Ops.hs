@@ -15,12 +15,15 @@ import ProjectM36.Typed.Internal
 import ProjectM36.Typed.Execute
 import ProjectM36.Typed.Generics
 
+import qualified Debug.Trace as D
+
 type SchemaOpM env m = (MonadError DbErrorQ m, MonadIO m, MonadReader env m)
 
 createSchema :: forall env db. (HasLogFunc env) => SessionId -> Connection -> QDbSchema db -> RIO env (Either DbErrorQ (DbConnection db))
 createSchema sid conn sc@(QDbSchema schemaP) = do
   mainRes <- withTransactionUsingQ (sid, conn) UnionMergeStrategy $ runExceptT $ do
     logInfo $ "Creating schema"
+    logInfo $ displayShow schemaP
     let operations = [
             ("Automated generation of database context from schema", sortByWeight $ toDatabaseSchemaContext schemaP)
           ]
@@ -47,9 +50,10 @@ createSchema sid conn sc@(QDbSchema schemaP) = do
     sortByWeight :: [DatabaseContextExpr] -> [DatabaseContextExpr]
     sortByWeight xs = map fst $ L.sortBy (comparing snd) $ map (\e -> (e, dceWeight e)) xs
     dceWeight :: DatabaseContextExpr -> Int
-    dceWeight (Define _ _) = 5
-    dceWeight (AddInclusionDependency _ _ ) = 10
-    dceWeight _ = 15
+    dceWeight (AddTypeConstructor a b) = D.traceShow (AddTypeConstructor a b) 5
+    dceWeight (Define _ _) = 10
+    dceWeight (AddInclusionDependency _ _ ) = 15
+    dceWeight _ = 20
     runOperation :: (SchemaOpM env m) => (Text, [DatabaseContextExpr]) -> m ()
     runOperation (n, !exprs) = do
       logInfo $ "Running schema operation: " <> displayShow n
@@ -93,6 +97,7 @@ createSchema sid conn sc@(QDbSchema schemaP) = do
 
 insertT :: forall db name a . (HasNamedDbType db name a) => Proxy name -> a -> UpdateM db a
 insertT pName a = do
+  D.traceShowM a
   e <- liftEitherQ $ toInsertExpr [a] (showSymbol pName)
   throwQ $ executeUpdate e
   return a

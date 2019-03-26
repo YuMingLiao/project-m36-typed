@@ -23,6 +23,12 @@ import Test.QuickCheck.Arbitrary
 
 import GHC.TypeLits
 
+import Data.ByteString (ByteString)
+import Data.Text (Text)
+import Data.Time.Clock (UTCTime)
+import Data.Time.Calendar (Day)
+
+
 class (KnownSymbol (AppRecordName a ), Generic a) => AppRecordMeta a where
   type AppRecordName a :: Symbol
 
@@ -112,17 +118,16 @@ data AddInclusionDependency (name :: Symbol) relEx1 relEx2
 
 data NoOperation
 data Define (sym :: Symbol) a
+data CreateNewDatatype (a :: *) relvar
 data UniqueConstraint (fields :: [Symbol]) relvar
-
-
 data ForeignConstraint (fieldsA :: [Symbol]) relvarB (fieldsB :: [Symbol]) relvarA
 
 
 type RelVarD a = Define (AppRecordName a) (DbRecord a)
 
-
-
-
+type BuiltInPrimitiveTypes = (Integer ': Int ': Float ': UTCTime ': Day ': Double ': Text ': ByteString ': Bool ': '[])
+type BuiltInMaybeTypes = TMap Maybe BuiltInPrimitiveTypes
+type BuiltInTypes = Union BuiltInPrimitiveTypes BuiltInMaybeTypes
 
 
 type family InjectConstraints a where
@@ -132,11 +137,19 @@ type family InjectConstraintsBase schema a where
   InjectConstraintsBase schema (a :& b) = InjectConstraintsBase schema a :& InjectConstraintsBase schema b
   InjectConstraintsBase schema (a :$ existingConstraints) = a :$ Union (DeriveConstraints schema a) existingConstraints
   InjectConstraintsBase schema (Define a (DbRecord b)) = (Define a (DbRecord b)) :$ DeriveConstraints schema (Define a (DbRecord b))
-  InjectConstraintsBase schema a = a
+  InjectConstraintsBase schema a = a :$ (DeriveConstraints schema a)
 
 
 type family DeriveConstraints schema a :: [* -> *] where
-  DeriveConstraints schema a = Union (DeriveUniqueConstraints schema a) (DeriveForeignConstraints schema a)
+  DeriveConstraints schema a = Union (Union (DeriveNewDatatypes schema a) (DeriveUniqueConstraints schema a)) (DeriveForeignConstraints schema a)
+
+type family DeriveNewDatatypes schema a :: [* -> *] where
+  DeriveNewDatatypes s (Define _ (DbRecord a)) = Union 
+    (TMap CreateNewDatatype (RemoveTypes BuiltInTypes (ExtractFieldTypes a))) 
+    (TMap CreateNewDatatype (RemoveTypes (Union BuiltInTypes '[a]) (ExtractFieldTypes (DbRecord a))))
+
+  DeriveNewDatatypes _ (Define _ a) = TMap CreateNewDatatype (RemoveTypes BuiltInTypes (ExtractFieldTypes a))
+    --IfOrErr 'False '[] ('ShowType (TMap CreateNewDatatype (RemoveTypes BuiltInTypes (ExtractFieldTypes a))))
 
 
 type family DeriveUniqueConstraints schema a :: [* -> *] where

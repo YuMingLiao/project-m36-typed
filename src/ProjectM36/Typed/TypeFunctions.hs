@@ -26,6 +26,16 @@ type family DoExtractFieldNames (r :: [Field Symbol *]) :: [Symbol] where
   DoExtractFieldNames '[] = '[]
   DoExtractFieldNames (('Field n _) ':xs) = Union '[n] (DoExtractFieldNames xs)
 
+type family ExtractFieldTypes (r :: *) :: [*] where
+  ExtractFieldTypes r = Nub (DoExtractFieldTypes (ExtractFields r))
+
+type family DoExtractFieldTypes (r :: [Field Symbol *]) :: [*] where
+  DoExtractFieldTypes '[] = '[]
+  DoExtractFieldTypes (('Field _ a) ':xs) = Union '[a] (DoExtractFieldTypes xs)
+
+
+
+
 
 
 type family ExtractFields (r :: *):: [Field Symbol *] where
@@ -133,6 +143,12 @@ type family TMap (f :: k -> j) (xs :: [k]) :: [j] where
 type family Union (a :: [k]) (b :: [k]) = (res :: [k]) where
   Union '[] b = b
   Union (a ': xs) b = a ': Union xs b
+
+{-
+type family Difference (a :: [k]) (b :: [k]) = (res :: [k]) where
+  Difference '[] b = '[]
+  Difference (a ': xs) b = a ': Union xs b
+-}
 
 type family IntercalateSymbol (a :: Symbol) (xs :: [Symbol]) where
   IntercalateSymbol _ '[] = ""

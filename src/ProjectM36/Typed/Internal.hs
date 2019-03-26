@@ -16,6 +16,7 @@ import qualified  RIO.Set as S
 import ProjectM36.Base
 import ProjectM36.Tupleable
 import ProjectM36.Relation
+import ProjectM36.Atomable
 
 import GHC.TypeLits
 import Data.Proxy(Proxy(..))
@@ -208,6 +209,9 @@ instance (ToDatabaseContext a, ToDatabaseContext b) => ToDatabaseContext (a :& b
 instance (Tupleable a, KnownSymbol sym) => ToDatabaseContext (Define sym a) where
   toDatabaseContext _ = [toDefineExpr (Proxy :: Proxy a) (T.pack $ symbolVal (Proxy :: Proxy sym))]
 
+instance (Atomable a) => ToDatabaseContext (CreateNewDatatype a b) where
+  toDatabaseContext _ = [toAddTypeExpr (Proxy :: Proxy a)]
+
 
 
 instance (ToDatabaseContext a, All ToDatabaseContext (ExpandApply xs a)) => ToDatabaseContext (a :$ xs) where
@@ -289,7 +293,8 @@ instance (ToDatabaseContext (UniqueConstraint a b )) => ToDatabaseSchemaContext 
 instance (ToDatabaseContext (ForeignConstraint a b c d)) => ToDatabaseSchemaContext (ForeignConstraint a b c d) where
   toDatabaseSchemaContext = toDatabaseContext
 
-
+instance (ToDatabaseContext (CreateNewDatatype a b )) => ToDatabaseSchemaContext (CreateNewDatatype a b) where
+  toDatabaseSchemaContext = toDatabaseContext 
 
 
 

@@ -38,8 +38,13 @@ library
     mtl,
     uuid,
     word8,
-    quickcheck-instances
-
+    time,
+    text,
+    bytestring,
+    quickcheck-instances,
+    containers,
+    vector,
+    ordered-containers
 
 
 
@@ -116,6 +121,10 @@ test-suite project-m36-typed-test
                      , QuickCheck
                      , generics-sop
                      , basic-sop
+                     , binary
+                     , binary-orphans
+                     , uuid
+                     , text
 
   default-language:    Haskell2010
   default-extensions:  AutoDeriveTypeable

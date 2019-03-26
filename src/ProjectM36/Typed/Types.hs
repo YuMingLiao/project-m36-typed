@@ -1,3 +1,4 @@
+{-# Language DerivingStrategies, DeriveAnyClass #-}
 module ProjectM36.Typed.Types where
 import RIO
 import qualified Data.UUID as UUID
@@ -11,9 +12,12 @@ import Test.QuickCheck.Arbitrary
 -- @todo remove this as we don't actually want these instances in the long run
 import Test.QuickCheck.Instances()
 
+import ProjectM36.Atomable
+import Data.Text.Encoding
+import ProjectM36.Base
 newtype ETag = ETag UUID.UUID
-  deriving (Eq, Ord, Show, Generic, Arbitrary)
-  deriving newtype (NFData, Binary)
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (NFData, Binary, Arbitrary)
 
 -- @todo replace UUID with something else more cryptographically secure?
 
@@ -28,11 +32,21 @@ instance R.Random ETag where
   random = randomEtag
 
 
+{-
 newtype SafeId = SafeId B.ByteString
   deriving (Eq, Ord, Show, Generic)
   deriving newtype (NFData, Binary)
+-}
+data SafeId = SafeId B.ByteString
+  deriving (Eq, Ord, Show, Generic)
+  deriving anyclass (NFData, Binary)
 
-
+instance Atomable SafeId where
+  toAtom (SafeId bs)= TextAtom (decodeUtf8 bs)
+  fromAtom (TextAtom t) = SafeId (encodeUtf8 t)
+  fromAtom _ = error "improper fromAtom"  
+  toAtomType _ = TextAtomType
+  toAddTypeExpr _ = NoOperation
 
 safeIdToByteString :: SafeId -> B.ByteString
 safeIdToByteString (SafeId bs) = bs
