@@ -29,8 +29,11 @@ import Data.Time.Clock (UTCTime)
 import Data.Time.Calendar (Day)
 
 
+
+
 class (KnownSymbol (AppRecordName a ), Generic a) => AppRecordMeta a where
   type AppRecordName a :: Symbol
+--  type AppRecordName a = TypeRef a
 
 instance (AppRecordMeta a) => AppRecordMeta (DbRecord a) where
   type AppRecordName (DbRecord a) = AppRecordName a
@@ -118,7 +121,7 @@ data AddInclusionDependency (name :: Symbol) relEx1 relEx2
 
 data NoOperation
 data Define (sym :: Symbol) a
-data CreateNewDatatype (a :: *) relvar
+data CreateNewDatatype (a :: *) relvar 
 data UniqueConstraint (fields :: [Symbol]) relvar
 data ForeignConstraint (fieldsA :: [Symbol]) relvarB (fieldsB :: [Symbol]) relvarA
 
@@ -126,31 +129,32 @@ data ForeignConstraint (fieldsA :: [Symbol]) relvarB (fieldsB :: [Symbol]) relva
 type RelVarD a = Define (AppRecordName a) (DbRecord a)
 
 type BuiltInPrimitiveTypes = (Integer ': Int ': Float ': UTCTime ': Day ': Double ': Text ': ByteString ': Bool ': '[])
+type BuiltInTypeCons = (Maybe ': '[]) -- TODO: what about List and NonEmptyList and Either and Intervals?
+-- type MustHaveTypeCons = RecordId ': '[]
+type MustHaveTypes = RemoveTypes (Int : '[]) (ExtractFieldTypes (DbRecord Int)) 
 type BuiltInMaybeTypes = TMap Maybe BuiltInPrimitiveTypes
 type BuiltInTypes = Union BuiltInPrimitiveTypes BuiltInMaybeTypes
 
 
+
 type family InjectConstraints a where
-  InjectConstraints a = InjectConstraintsBase a a
+  InjectConstraints a = {-InjectNewDatatypes a :&-} InjectConstraintsBase a a
 
 type family InjectConstraintsBase schema a where
   InjectConstraintsBase schema (a :& b) = InjectConstraintsBase schema a :& InjectConstraintsBase schema b
   InjectConstraintsBase schema (a :$ existingConstraints) = a :$ Union (DeriveConstraints schema a) existingConstraints
-  InjectConstraintsBase schema (Define a (DbRecord b)) = (Define a (DbRecord b)) :$ DeriveConstraints schema (Define a (DbRecord b))
+--  InjectConstraintsBase schema (Define a (DbRecord b)) = (Define a (DbRecord b)) :$ DeriveConstraints schema (Define a (DbRecord b))
   InjectConstraintsBase schema a = a :$ (DeriveConstraints schema a)
 
 
 type family DeriveConstraints schema a :: [* -> *] where
-  DeriveConstraints schema a = Union (Union (DeriveNewDatatypes schema a) (DeriveUniqueConstraints schema a)) (DeriveForeignConstraints schema a)
+  DeriveConstraints schema a = (TMap CreateNewDatatype (DeriveNewDatatypes schema a)) +++ (DeriveUniqueConstraints schema a) +++ (DeriveForeignConstraints schema a)
 
-type family DeriveNewDatatypes schema a :: [* -> *] where
-  DeriveNewDatatypes s (Define _ (DbRecord a)) = Union 
-    (TMap CreateNewDatatype (RemoveTypes BuiltInTypes (ExtractFieldTypes a))) 
-    (TMap CreateNewDatatype (RemoveTypes (Union BuiltInTypes '[a]) (ExtractFieldTypes (DbRecord a))))
+type family DeriveNewDatatypes schema a :: [*] where
+  DeriveNewDatatypes _ (Define _ (DbRecord a)) =  RemoveTypes '[a] (ExtractFieldTypes (DbRecord a))
+    +++ RemoveTypes BuiltInTypes (ExtractNullaryTypes (ExtractFieldTypes a))
 
-  DeriveNewDatatypes _ (Define _ a) = TMap CreateNewDatatype (RemoveTypes BuiltInTypes (ExtractFieldTypes a))
-    --IfOrErr 'False '[] ('ShowType (TMap CreateNewDatatype (RemoveTypes BuiltInTypes (ExtractFieldTypes a))))
-
+  DeriveNewDatatypes _ (Define _ a) = RemoveTypes BuiltInTypes (ExtractNullaryTypes (ExtractFieldTypes a))
 
 type family DeriveUniqueConstraints schema a :: [* -> *] where
   DeriveUniqueConstraints _ (Define _ (DbRecord a)) = '[UniqueConstraint '["dbRecordId"]]
@@ -218,6 +222,7 @@ type family ToRelVarMap a = (res :: [TM.Mapping Symbol *])  where
 
 type family FromMaybe (a :: Maybe k) where
   FromMaybe ('Just a) = a
+--  FromMaybe 'Nothing  = Err "get Nothing from FromMaybe"
 
 type family LookupUniqueRelVarName schema a :: Symbol where
   LookupUniqueRelVarName schema a = SingleValueFromListOrErr (LookupTMKeys (ToRelVarMap schema) a) (

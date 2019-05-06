@@ -12,8 +12,6 @@ import ProjectM36.Typed.DB.Types
 
 data Field name t = Field name t
 
-
-
 type family Nub (xs :: [*]) :: [*] where
   Nub '[] = '[]
   Nub (x ': xs) = If (Elem x xs) (Nub xs) (x ': Nub xs)
@@ -35,9 +33,6 @@ type family DoExtractFieldTypes (r :: [Field Symbol *]) :: [*] where
 
 
 
-
-
-
 type family ExtractFields (r :: *):: [Field Symbol *] where
   ExtractFields (DbRecord a) = Union (ExtractFieldsG (Rep a)) (ExtractFieldsG (Rep (DbRecord a)))
   ExtractFields a = ExtractFieldsG (Rep a)
@@ -52,6 +47,7 @@ type family ExtractFieldsG (r :: * -> *) :: [Field Symbol *] where
     = ExtractFieldsG a
   ExtractFieldsG _
     = '[]
+
 
 
 type family Elem (a :: k) (b :: [k]) :: Bool where
@@ -133,16 +129,41 @@ type family NotWithErr (a :: Bool) (err :: ErrorMessage) = (res :: Bool)  where
     NotWithErr 'False _ = 'True
     NotWithErr 'True err = TypeError err
 
+type family TConcatMap (f :: * -> [*]) (xs :: [*]) :: [*] where
+   TConcatMap f '[]       = '[]
+   TConcatMap f (x ': xs) = Union (f x) (TConcatMap f xs)
 
+type family TConcat (xs :: [[k]]) :: [k] where
+   TConcat '[]       = '[]
+   TConcat (x ': xs) = Union x (TConcat xs)
+
+type family TMap' (f :: * -> [*]) (xs :: [*]) :: [[*]] where
+   TMap' f '[]       = '[]
+   TMap' f (x ': xs) = f x ': TMap f xs
 
 type family TMap (f :: k -> j) (xs :: [k]) :: [j] where
    TMap f '[]       = '[]
    TMap f (x ': xs) = f x ': TMap f xs
 
+infixr 5 +++
+type f +++ g = Union f g
 
 type family Union (a :: [k]) (b :: [k]) = (res :: [k]) where
   Union '[] b = b
   Union (a ': xs) b = a ': Union xs b
+
+type family
+  ExtractNullaryTypes (a :: [typ]) :: [nullary_typ] where
+  ExtractNullaryTypes ((f x) : xs) = ExtractNullaryTypes xs
+  ExtractNullaryTypes (x : xs)     = x : ExtractNullaryTypes xs
+  ExtractNullaryTypes '[]          = '[]
+
+-- how to pattern match a type constructor with more arguments?
+type family
+  ExtractUnaryTypeCons (a :: [typ]) :: [arg->typ] where
+  ExtractUnaryTypeCons ((f x) : xs) = f : ExtractUnaryTypeCons xs
+  ExtractUnaryTypeCons (x : xs)     = ExtractUnaryTypeCons xs
+  ExtractUnaryTypeCons '[]          = '[]
 
 {-
 type family Difference (a :: [k]) (b :: [k]) = (res :: [k]) where

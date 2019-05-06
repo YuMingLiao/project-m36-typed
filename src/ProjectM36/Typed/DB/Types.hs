@@ -183,7 +183,7 @@ data Gender =
     GenderFemale
   | GenderMale
   | GenderUnspecified
-  deriving (Generic, Eq, Show)
+  deriving (Generic, Eq, Ord, Show, Binary, NFData, Atomable, Arbitrary)
 
 type DateOfBirth = Time.Day
 

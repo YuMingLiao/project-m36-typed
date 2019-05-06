@@ -16,6 +16,9 @@ import qualified Data.List.NonEmpty as NE
 import ProjectM36.Typed.Internal
 
 import ProjectM36.Typed.Gen
+import Data.UUID.V4 as U
+import Data.UUID as U
+
 
 data DbConnection db = DbConnection {
   dbSession :: SessionId,
@@ -121,6 +124,8 @@ class (Monad m) => CanQueryDb m where
 class HasDbConnection a db where
   dbConnectionL :: Lens' (a db) (DbConnection db)
 
+class HasLogOptions a db where
+  logOptionsL :: Lens' (a db) (LogOptions)
 
 class HasCurrentTime env where
   getCurrentTimeL :: Lens' env T.UTCTime
@@ -128,14 +133,14 @@ class HasCurrentTime env where
 class GetCurrentTimeM m where
   getCurrentTimeM :: m T.UTCTime
 
-
+class GetUUIDM m where
+  getUUIDM :: m U.UUID
 
 
 
 
 
 {- Concrete instances for writing db functions -}
-
 
 newtype QueryM db a = QueryM {extractQueryM :: (forall env . (HasLogFunc (env db), HasDbConnection env db) =>  ExceptT DbErrorQ (RIO (env db)) a)}
  deriving (Functor)
@@ -185,9 +190,11 @@ instance HasDbConnection UpdateMState db where
 instance HasCurrentTime (UpdateMState db) where
   getCurrentTimeL = lens updateMStateCurrentTime (\x y -> x { updateMStateCurrentTime = y })
 
-
 instance GetCurrentTimeM (UpdateM db) where
   getCurrentTimeM = UpdateM (view getCurrentTimeL)
+
+instance GetUUIDM (UpdateM db) where
+  getUUIDM = runIOInUpdateM $ nextRandom
 
 liftLog ::  Utf8Builder -> UpdateM db ()
 liftLog a = UpdateM $ logInfo a
@@ -253,4 +260,5 @@ liftEitherQ = either (throwError . toDbErrorQ) pure
 
 throwQ :: (ToDbErrorQ e, MonadError DbErrorQ m) => m (Either e a) -> m a
 throwQ a = a >>= liftEitherQ
+
 

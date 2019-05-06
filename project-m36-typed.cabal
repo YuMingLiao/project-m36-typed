@@ -14,6 +14,7 @@ library
     ProjectM36.Typed
     ProjectM36.Typed.Execute
     ProjectM36.Typed.Internal
+    ProjectM36.Typed.Interface
     ProjectM36.Typed.Ops
     ProjectM36.Typed.Wrapped
     ProjectM36.Typed.Wrapped.Redundant
@@ -54,7 +55,7 @@ library
                        -Wincomplete-record-updates
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
-                       -Werror
+--                       -Werror
   default-language:    Haskell2010
   default-extensions:  AutoDeriveTypeable
                        BangPatterns
@@ -125,6 +126,7 @@ test-suite project-m36-typed-test
                      , binary-orphans
                      , uuid
                      , text
+                     , type-spec
 
   default-language:    Haskell2010
   default-extensions:  AutoDeriveTypeable

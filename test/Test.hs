@@ -12,10 +12,7 @@ import ProjectM36.Typed.DB.Types
 import qualified Generics.SOP as SOP
 import qualified Generics.SOP.Arbitrary as SOP
 import Test.QuickCheck as QC
-import Data.Proxy
 import Data.Binary
-import Data.UUID (toText)
-import Data.UUID.V1
 
 main :: IO ()
 main = do
@@ -26,12 +23,10 @@ tests = testGroup "Tests" $ [
     testCaseSteps "insertRecord" unit_insertRecord
   ]
 
-
 data AppEnv db = AppEnv LogFunc (DbConnection db)
 
 instance HasDbConnection (AppEnv) db where
   dbConnectionL = lens (\(AppEnv _ c) -> c) (\(AppEnv l _) db -> AppEnv l db)
-
 
 instance HasLogFunc (AppEnv db) where
   logFuncL = lens (\(AppEnv l _) -> l) (\(AppEnv _ db) l -> AppEnv l db)
@@ -43,22 +38,17 @@ unit_insertRecord step = do
   withLogFunc logOptions' $ \lf -> do
     step "Connecting to db"
     eRes <-  connectProjectM36T lf (InProcessConnectionInfo (CrashSafePersistence "./db") emptyNotificationCallback []) dbSchema
-    conn <- either (throwIO ) pure eRes
+    conn <- either (throwIO) pure eRes
     runRIO (AppEnv lf conn) $ do
-      (ps_ :: [DbRecord User]) <- liftIO $ QC.generate $ sequence $ replicate 10 (arbitrary)
-      let set' p = do Just uuid <- nextUUID
-                      return $ setRecordId p (toText uuid)
-          setRecordId p uuid = p { dbRecordId = RecordId  $ uuid }
-      ps <-  liftIO $  mapM (set') ps_
-      eRa <- mapM (\p -> executeUpdateM $ insertT (Proxy :: Proxy "Users") p) ps
-      void $ mapM (either throwIO pure) eRa
 
-      ePs <- executeQueryM $ fetchT (Proxy :: Proxy "Users")
+      (ps_ :: [User]) <- liftIO $ QC.generate $ sequence $ replicate 10 (arbitrary)
+      eRa <- executeUpdateM $ insertRecordBulkT ps_
+      ps  <- (either throwIO pure) eRa
+
+      ePs <- executeQueryM $ fetchT
       ps1 <- either (throwIO ) pure ePs
 
       liftIO $ assertBool "Inserted numbers did not match fetched numbers" (L.sort ps == L.sort ps1)
-
---      pure $ testEquality (eRa) ps
 
 
 -- a new datatype for database
@@ -96,7 +86,7 @@ data PhoneNumber = PhoneNumber
 ---  , phoneNumberOwner :: RecordId User
   } deriving (Generic, NFData, Binary)
 
-type AppSchema = InjectConstraints (
+type AppSchema = (
      (Define "Users" (DbRecord User)) -- :$ ('[UniqueConstraint '["userEmail"]]) 
    :&  (Define "Addresses" Address) -- :$ ('[ForeignConstraint '["addressOwnerEmail"] (Define "Users" User) '["userEmail"]])
    :& (Define "PhoneNumbers" PhoneNumber) :$ '[UniqueConstraint '["phoneNumberNumber"]] 
@@ -110,7 +100,7 @@ instance SOP.Generic User
 instance SOP.HasDatatypeInfo User
 instance Arbitrary User where arbitrary = SOP.garbitrary
 instance AppRecordMeta User where
-  type AppRecordName User = "User"
+  type AppRecordName User = "Users"
 instance Tupleable User
 
 deriving instance Eq Address
@@ -120,7 +110,7 @@ instance SOP.Generic Address
 instance SOP.HasDatatypeInfo Address
 instance Arbitrary Address where arbitrary = SOP.garbitrary
 instance AppRecordMeta Address where
-  type AppRecordName Address = "Address"
+  type AppRecordName Address = "Addresses"
 instance Tupleable Address
 
 deriving instance Eq PhoneNumber
@@ -130,11 +120,11 @@ instance SOP.Generic PhoneNumber
 instance SOP.HasDatatypeInfo PhoneNumber
 instance Arbitrary PhoneNumber where arbitrary = SOP.garbitrary
 instance AppRecordMeta PhoneNumber where
-  type AppRecordName PhoneNumber = "PhoneNumber"
+  type AppRecordName PhoneNumber = "PhoneNumbers"
 instance Tupleable PhoneNumber
 
 --schema :: QSchema ( AppSchema)
 --schema = mkSchema
 
-dbSchema :: QDbSchema AppSchema
+dbSchema :: QDbSchema (InjectConstraints AppSchema)
 dbSchema = mkDbSchema

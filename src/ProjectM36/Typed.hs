@@ -46,6 +46,7 @@ module ProjectM36.Typed (
     -- this file
 
     connectProjectM36T,
+    reconnectProjectM36T,
     closeDb,
 
 
@@ -80,6 +81,19 @@ connectProjectM36T lf ci sc = do
           case res of
             Left errs -> return . Left $ toDbErrorQ errs
             Right dbConn -> return . Right $ dbConn
+
+reconnectProjectM36T :: ConnectionInfo -> QDbSchema db -> IO (Either DbErrorQ (DbConnection db))
+reconnectProjectM36T ci sc = do
+   eConn <- connectProjectM36 ci
+   case eConn of
+    Left e -> return . Left $ toDbErrorQ e
+    Right conn -> do
+      eS <- createSessionAtHead conn "master"
+      case eS of
+        Left e -> return . Left $ toDbErrorQ e
+        Right s -> return . Right $ DbConnection s conn sc
+
+
 
 
 closeDb :: DbConnection db -> IO ()

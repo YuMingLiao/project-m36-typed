@@ -4,7 +4,6 @@
 module Main where
 
 import RIO
-import Data.Proxy (Proxy(..))
 import Criterion.Main
 import qualified Generics.SOP as SOP
 import qualified Generics.SOP.Arbitrary as SOP
@@ -44,7 +43,7 @@ instance HasLogFunc (AppEnv db) where
 runInsertUser :: LogFunc -> DbConnection AppSchema -> IO User
 runInsertUser lf db = runRIO (AppEnv lf db) $ do
   u <- liftIO $ QC.generate $ arbitrary
-  er <- executeUpdateM $ insertT (Proxy :: Proxy "Users") u
+  er <- executeUpdateM $ insertT u
   either (throwIO ) pure er
 
 
@@ -54,7 +53,7 @@ openDB lf = do
   db <- either (throwIO ) pure eRes
   runRIO (AppEnv lf db) $ do
     (us :: [User]) <- liftIO $ QC.generate $ sequence $ replicate 100000 (arbitrary)
-    er <- executeUpdateM $ insertBulkT (Proxy :: Proxy "Users") us
+    er <- executeUpdateM $ insertBulkT us
     _ <- either (throwIO ) pure er
     pure ()
   pure db
@@ -74,7 +73,7 @@ instance SOP.Generic User
 instance SOP.HasDatatypeInfo User
 instance Arbitrary User where arbitrary = SOP.garbitrary
 instance AppRecordMeta User where
-  type AppRecordName User = "User"
+  type AppRecordName User = "Users"
 instance Tupleable User
 
 type AppSchema = (

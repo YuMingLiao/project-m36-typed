@@ -1,3 +1,4 @@
+tags
 db/
 # Numerous always-ignore extensions
 *.diff
@@ -16,6 +17,7 @@ tmp/*
 var/*
 # OS or Editor folders
 .stack-work
+.stack-work-devel
 *.stack-work
 *.sublime-project
 *.sublime-workspace
