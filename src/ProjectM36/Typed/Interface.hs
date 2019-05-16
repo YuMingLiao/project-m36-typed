@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE TypeApplications #-}
@@ -14,7 +15,10 @@ import Control.Monad.IO.Class
 import Prelude (zipWith)
 import Data.UUID
 import Data.UUID.V4
+import Debug.Trace as D
 
+-- Identifiable: Custom Unique Constraint as Identifiers
+-- Recordable: RecordId a using UUID as Identifiers, or using auth id.
 type Databasable env db m a = (
   HasLogFunc (env db), 
   HasDbConnection env db,
@@ -29,12 +33,17 @@ throwDbError :: (MonadIO m, Applicative m) => Either DbErrorQ a -> m a
 throwDbError = either (liftIO . throwIO) pure
 
 
-insertUUID :: forall env db m a. Databasable env db m a => a -> m (RecordId a)
+insertUUID :: forall env db m a. Databasable env db m a => a -> m (DbRecord a)
 insertUUID a = do
   uuid <- liftIO nextRandom 
   e <- executeUpdateM (insertRecordT @db (RecordId (toText uuid)) a)
   r <- throwDbError e
-  return $ dbRecordId r
+  return r
+
+insertUUID_ID :: forall env db m a. Databasable env db m a => a -> m (RecordId a)
+insertUUID_ID a = dbRecordId <$> insertUUID a
+
+
 
 insertCustomIdR :: forall env db m a. Databasable env db m a => RecordId a -> a -> m (DbRecord a)
 insertCustomIdR i a = do

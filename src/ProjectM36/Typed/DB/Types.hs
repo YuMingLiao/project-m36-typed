@@ -62,12 +62,13 @@ data DbRecord a = DbRecord {
     , dbRecordDeleted :: RecordSoftDeleted
 --  , dbRecordLogs :: IxSet.IxSet DbRecordLogIxs DbRecordLog
 --  , dbRecordETag :: ETag
-  } deriving (Eq, Show, Generic, Ord)
+  } deriving (Eq, Show, Generic, Ord, Tupleable)
 
 instance SOP.Generic (DbRecord a)
 instance SOP.HasDatatypeInfo (DbRecord a)
 instance (Arbitrary a) => Arbitrary (DbRecord a) where arbitrary = SOP.garbitrary
 
+{-
 -- dbRecordRecord is flattened into a one-layer relation of DbRecord a
 --
 instance (Show a, Tupleable a) => Tupleable (DbRecord a) where
@@ -101,7 +102,7 @@ instance (Show a, Tupleable a) => Tupleable (DbRecord a) where
                                          Attribute "dbRecordCreated" (toAtomType (Proxy :: Proxy RecordCreated)),
                                          Attribute "dbRecordLastModified" (toAtomType (Proxy :: Proxy RecordLastModified )),
                                          Attribute "dbRecordDeleted" (toAtomType (Proxy :: Proxy RecordSoftDeleted))]
-                                          
+-}                                        
 keys  :: OM.OMap k a -> [k]
 keys m
   = [k | (k,_) <- OM.assocs m]

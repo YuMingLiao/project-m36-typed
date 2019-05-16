@@ -9,6 +9,8 @@ import GHC.TypeLits
 
 import ProjectM36.Typed.DB.Types
 
+type family TypeName (rep :: * -> *) :: Symbol where
+  TypeName (D1 ('MetaData name _ _ _) f) = name
 
 data Field name t = Field name t
 

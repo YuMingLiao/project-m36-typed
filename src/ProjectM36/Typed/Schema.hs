@@ -21,6 +21,7 @@ import Generics.SOP.Dict
 import qualified Generics.SOP as SOP
 import Test.QuickCheck.Arbitrary
 
+import GHC.Generics (Rep)
 import GHC.TypeLits
 
 import Data.ByteString (ByteString)
@@ -33,7 +34,7 @@ import Data.Time.Calendar (Day)
 
 class (KnownSymbol (AppRecordName a ), Generic a) => AppRecordMeta a where
   type AppRecordName a :: Symbol
---  type AppRecordName a = TypeRef a
+  type AppRecordName a = TypeName (Rep a) 
 
 instance (AppRecordMeta a) => AppRecordMeta (DbRecord a) where
   type AppRecordName (DbRecord a) = AppRecordName a
@@ -138,12 +139,11 @@ type BuiltInTypes = Union BuiltInPrimitiveTypes BuiltInMaybeTypes
 
 
 type family InjectConstraints a where
-  InjectConstraints a = {-InjectNewDatatypes a :&-} InjectConstraintsBase a a
+  InjectConstraints a = InjectConstraintsBase a a
 
 type family InjectConstraintsBase schema a where
   InjectConstraintsBase schema (a :& b) = InjectConstraintsBase schema a :& InjectConstraintsBase schema b
   InjectConstraintsBase schema (a :$ existingConstraints) = a :$ Union (DeriveConstraints schema a) existingConstraints
---  InjectConstraintsBase schema (Define a (DbRecord b)) = (Define a (DbRecord b)) :$ DeriveConstraints schema (Define a (DbRecord b))
   InjectConstraintsBase schema a = a :$ (DeriveConstraints schema a)
 
 
@@ -151,7 +151,7 @@ type family DeriveConstraints schema a :: [* -> *] where
   DeriveConstraints schema a = (TMap CreateNewDatatype (DeriveNewDatatypes schema a)) +++ (DeriveUniqueConstraints schema a) +++ (DeriveForeignConstraints schema a)
 
 type family DeriveNewDatatypes schema a :: [*] where
-  DeriveNewDatatypes _ (Define _ (DbRecord a)) =  RemoveTypes '[a] (ExtractFieldTypes (DbRecord a))
+  DeriveNewDatatypes _ (Define _ (DbRecord a)) = ExtractFieldTypes (DbRecord a)
     +++ RemoveTypes BuiltInTypes (ExtractNullaryTypes (ExtractFieldTypes a))
 
   DeriveNewDatatypes _ (Define _ a) = RemoveTypes BuiltInTypes (ExtractNullaryTypes (ExtractFieldTypes a))

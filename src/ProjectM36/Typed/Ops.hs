@@ -21,6 +21,7 @@ import qualified Debug.Trace as D
 import Data.Text as T (pack)
 import Data.UUID.V4
 import Data.UUID
+import Debug.Trace as D
 
 type SchemaOpM env m = (MonadError DbErrorQ m, MonadIO m, MonadReader env m)
 
@@ -102,7 +103,7 @@ createSchema sid conn sc@(QDbSchema schemaP) = do
 rvname :: forall a. AppRecordMeta a => Text
 rvname = showSymbol $ Proxy @(AppRecordName a)
 
---for a basic a, not DbRecord a
+--crud for a plain a (not DbRecord a)
 insertT a = do
   insertBulkT [a]
   return a
@@ -113,78 +114,11 @@ insertBulkT as = do
   throwQ $ executeUpdate e
   return as
 
-
 fetchT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) a) => QueryM db [a]
 fetchT = do
   rel <- throwQ $ executeQuery (RelationVariable (rvname @a) ())
   liftEitherQ $ toList rel 
 
-fetchFromDbRecordT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => QueryM db [a]
-fetchFromDbRecordT = do
-  rs <- fetchT 
-  return (map dbRecordRecord rs)
-
-
-recordT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> a -> UpdateM db (DbRecord a) 
-recordT i a = do
-  now  <- getCurrentTimeM
-  return (mkNewRec a i now)
-
-
---TODO: what if UUID repeat? should deal with insert error and get another uuid?
-recordWithUUIDT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => a -> UpdateM db (DbRecord a) 
-recordWithUUIDT a = do
-  uuid <- getUUIDM
-  now  <- getCurrentTimeM
-  return (mkNewRec a (RecordId $ toText uuid) now)
-
-
-
-mkNewRec a ident now = DbRecord {
-    dbRecordRecord = a,
-    dbRecordId = ident,
-    dbRecordCreated = RecordCreated now,
-    dbRecordLastModified = RecordLastModified Nothing,
-    dbRecordDeleted = RecordSoftDeleted False
-  }
-
-insertRecordBulkT as = mapM insertRecordT as
-
-insertRecordT :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> a -> UpdateM db (DbRecord a)
-insertRecordT i a = do
-  r <- recordT i a
-  e <- liftEitherQ $ toInsertExpr [r] (rvname @a)
-  throwQ $ executeUpdate e
-  return r
-
-
-
-
-toList :: (Tupleable a, Show a) => Relation -> Either RelationalError [a]
-toList rel = mapM fromTuple (relationTuples rel)
-
-fetchR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => QueryM db [DbRecord a]
-fetchR = do
-  rel <- throwQ $ executeQuery (RelationVariable (rvname @a) ())
-  liftEitherQ $ toList rel 
-
-fetchNoR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => QueryM db [a]
-fetchNoR = do
-  recs <- fetchR @db 
-  return (dbRecordRecord <$> recs)
-
-getRecordExpr rv rid = Restrict restrictionPredicate (RelationVariable rv ())
-  where restrictionPredicate = AttributeEqualityPredicate "dbRecordId" (NakedAtomExpr (toAtom rid))
-
-getByExpr rv f v = Restrict restrictionPredicate (RelationVariable rv ())
-  where restrictionPredicate = AttributeEqualityPredicate f (NakedAtomExpr (toAtom v))
-
-
-getR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> QueryM db (Maybe (DbRecord a))
-getR rid = do
-    rel <- throwQ . executeQuery $ getRecordExpr (rvname @a) rid
-    as  <- liftEitherQ $ toList rel 
-    return ( D.traceShowId $ listToMaybe as)
 {- TODO: getBy should type-check if the field is UniqueConstraint
 getByUniqueConstraintExpr rv rid = Restrict restrictionPredicate (RelationVariable rv ())
   where restrictionPredicate = AttributeEqualityPredicate "dbRecordId" (NakedAtomExpr (toAtom rid))
@@ -198,6 +132,7 @@ getByFieldR field value = do
   as  <- liftEitherQ $ toList rel 
   return (listToMaybe as)
 -}
+
 {-
 getT :: forall db name a . (AppRecordMeta a, HasNamedDbType db name a) => RecordId a -> QueryM db (Maybe a)
 getT rid = do
@@ -205,6 +140,68 @@ getT rid = do
   rec <- getR rid
   return (dbRecordRecord rec)
 -}
+
+
+-- crud for DbRecord
+mkNewRec a ident now = DbRecord {
+    dbRecordRecord = a,
+    dbRecordId = ident,
+    dbRecordCreated = RecordCreated now,
+    dbRecordLastModified = RecordLastModified Nothing,
+    dbRecordDeleted = RecordSoftDeleted False
+  }
+
+recordT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> a -> UpdateM db (DbRecord a) 
+recordT i a = do
+  now  <- getCurrentTimeM
+  return (mkNewRec a i now)
+
+--TODO: what if UUID repeat? should deal with insert error and get another uuid?
+recordWithUUIDT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => a -> UpdateM db (DbRecord a) 
+recordWithUUIDT a = do
+  uuid <- getUUIDM
+  now  <- getCurrentTimeM
+  return (mkNewRec a (RecordId $ toText uuid) now)
+
+fetchFromDbRecordT :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => QueryM db [a]
+fetchFromDbRecordT = do
+  rs <- fetchT 
+  return (map dbRecordRecord rs)
+
+insertRecordT :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> a -> UpdateM db (DbRecord a)
+insertRecordT i a = do
+  r <- recordT i a
+  e <- liftEitherQ $ toInsertExpr [r] (rvname @a)
+  throwQ $ executeUpdate e
+  return r
+
+insertRecordBulkT as = mapM insertRecordT as
+
+toList :: (Tupleable a, Show a) => Relation -> Either RelationalError [a]
+toList rel = mapM fromTuple (relationTuples rel)
+
+getRecordExpr rv rid = Restrict restrictionPredicate (RelationVariable rv ())
+  where restrictionPredicate = AttributeEqualityPredicate "dbRecordId" (NakedAtomExpr (toAtom rid))
+
+getByExpr rv f v = Restrict restrictionPredicate (RelationVariable rv ())
+  where restrictionPredicate = AttributeEqualityPredicate f (NakedAtomExpr (toAtom v))
+
+fetchR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => QueryM db [DbRecord a]
+fetchR = do
+  rel <- throwQ $ executeQuery (RelationVariable (rvname @a) ())
+  liftEitherQ $ toList rel 
+
+fetchNoR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => QueryM db [a]
+fetchNoR = do
+  recs <- fetchR @db 
+  return (dbRecordRecord <$> recs)
+
+getR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> QueryM db (Maybe (DbRecord a))
+getR rid = do
+    rel <- throwQ . executeQuery $ getRecordExpr (rvname @a) rid
+    as  <- liftEitherQ $ toList rel 
+    return (listToMaybe as)
+
 errNoRecord rid = error ("No record is found by " ++ show rid)
 
 
@@ -242,7 +239,7 @@ updateR i a = do
                    dbRecordRecord = a,
                    dbRecordLastModified = RecordLastModified (Just now)
                  }
-             e <- liftEitherQ $ toUpdateExpr (rvname @a) ["userIdent","userPassword","dbRecordLastModified"] modified
+             e <- liftEitherQ $ toUpdateExpr (rvname @a) ["dbRecordId"] modified
              throwQ $ executeUpdate e
              return ()
 

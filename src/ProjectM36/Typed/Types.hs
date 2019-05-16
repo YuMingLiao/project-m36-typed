@@ -15,6 +15,17 @@ import Test.QuickCheck.Instances()
 import ProjectM36.Atomable
 import Data.Text.Encoding
 import ProjectM36.Base
+
+
+-- class Tupleable v => ProjectM36Entity v where
+
+
+
+
+
+
+
+
 newtype ETag = ETag UUID.UUID
   deriving (Eq, Ord, Show, Generic)
   deriving newtype (NFData, Binary, Arbitrary)

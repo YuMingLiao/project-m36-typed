@@ -1,5 +1,3 @@
-tags
-db/
 # Numerous always-ignore extensions
 *.diff
 *.err
@@ -15,6 +13,8 @@ db/
 *.directory
 tmp/*
 var/*
+db/*
+tags
 # OS or Editor folders
 .stack-work
 .stack-work-devel
