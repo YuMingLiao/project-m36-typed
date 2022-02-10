@@ -8,7 +8,6 @@ import qualified RIO.Time as Time
 
 import System.Random
 
-import Data.Binary
 
 --import ProjectM36.Typed.Types
 import qualified Generics.SOP as SOP
@@ -31,25 +30,29 @@ import Data.Proxy
 import qualified Debug.Trace as D
 import Test.QuickCheck.Instances.Time () 
 import Data.Maybe (fromJust)
+import GHC.TypeLits
+import Codec.Winery
+
 type Date = Time.UTCTime
+type DateOfBirth = Time.Day
 
 data RecordSoftDeleted = RecordSoftDeleted Bool
   deriving (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData, Binary, Atomable)
+  deriving anyclass (NFData, Serialise, Atomable)
 
 instance Arbitrary RecordSoftDeleted where
   arbitrary = RecordSoftDeleted <$> (arbitrary :: Gen Bool)
 
 data RecordCreated = RecordCreated Date
   deriving (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData, Binary, Atomable)
+  deriving anyclass (NFData, Serialise, Atomable)
 
 instance Arbitrary RecordCreated where
   arbitrary = RecordCreated <$> (arbitrary :: Gen Date)
 
 data RecordLastModified = RecordLastModified (Maybe Date)
   deriving (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData, Binary, Atomable)
+  deriving anyclass (NFData, Serialise, Atomable)
 
 instance Arbitrary RecordLastModified where
   arbitrary = RecordLastModified <$> (arbitrary :: Gen (Maybe Date))
@@ -62,16 +65,17 @@ data DbRecord a = DbRecord {
     , dbRecordDeleted :: RecordSoftDeleted
 --  , dbRecordLogs :: IxSet.IxSet DbRecordLogIxs DbRecordLog
 --  , dbRecordETag :: ETag
-  } deriving (Eq, Show, Generic, Ord, Tupleable)
+  } deriving (Eq, Show, Generic, Ord)  --, Tupleable)
 
 instance SOP.Generic (DbRecord a)
 instance SOP.HasDatatypeInfo (DbRecord a)
 instance (Arbitrary a) => Arbitrary (DbRecord a) where arbitrary = SOP.garbitrary
 
-{-
+
 -- dbRecordRecord is flattened into a one-layer relation of DbRecord a
+-- since the updates of DbRecord and Entity are at the same time, so I guess the best representation is one flattened relvar, though quite verbose. 
 --
-instance (Show a, Tupleable a) => Tupleable (DbRecord a) where
+instance (Show a, Tupleable a, Typeable a) => Tupleable (DbRecord a) where
   toTuple dbRecord = D.traceShowId $ tupleExtend (toTuple $ (dbRecordRecord dbRecord)) $ D.traceShowId $
     mkRelationTupleFromOMap' $ D.traceShowId $ (\x-> D.traceShow (keys x) x) $(OM.fromList ( [("dbRecordId", toAtom (dbRecordId dbRecord)),
                                          ("dbRecordCreated", toAtom (dbRecordCreated dbRecord)),
@@ -82,7 +86,7 @@ instance (Show a, Tupleable a) => Tupleable (DbRecord a) where
            mkRelationTupleFromOMap' attrMap = RelationTuple attrs (V.map (\k-> fromJust $ OM.lookup k attrMap) attrNames)
               where
                 attrNames = D.traceShowId $ V.fromList (keys attrMap)
-                attrs = V.map (\attrName -> Attribute attrName (atomTypeForAtom (fromJust $ OM.lookup (D.traceShowId attrName) (D.traceShowId attrMap) ))) attrNames
+                attrs = Attributes $ V.map (\attrName -> Attribute attrName (atomTypeForAtom (fromJust $ OM.lookup (D.traceShowId attrName) (D.traceShowId attrMap) ))) attrNames
   fromTuple tupIn = do
     idAtom <- atomForAttributeName "dbRecordId" tupIn
     created <- atomForAttributeName "dbRecordCreated" tupIn
@@ -97,12 +101,12 @@ instance (Show a, Tupleable a) => Tupleable (DbRecord a) where
         , dbRecordLastModified = fromAtom (lastModified)
         , dbRecordDeleted = fromAtom (softDeleted)
         } 
-  toAttributes _ = D.traceShowId $ addAttributes (toAttributes (Proxy :: Proxy a)) $ V.fromList
+  toAttributes _ = D.traceShowId $ addAttributes (toAttributes (Proxy :: Proxy a)) $ Attributes $ V.fromList
                                         [Attribute "dbRecordId" (toAtomType (Proxy :: Proxy (RecordId a))),
                                          Attribute "dbRecordCreated" (toAtomType (Proxy :: Proxy RecordCreated)),
                                          Attribute "dbRecordLastModified" (toAtomType (Proxy :: Proxy RecordLastModified )),
                                          Attribute "dbRecordDeleted" (toAtomType (Proxy :: Proxy RecordSoftDeleted))]
--}                                        
+                                        
 keys  :: OM.OMap k a -> [k]
 keys m
   = [k | (k,_) <- OM.assocs m]
@@ -125,19 +129,20 @@ data DbRecordLog = DbRecordLog {
   , dbRecordLogEvent :: DbRecordLogEvent
   }
 
+-- type family RecordId a :: *
+
+data RecordId a = RecordId Text
+    deriving (Generic, Eq, Show, Ord)
+    deriving anyclass (Serialise, NFData, Atomable)
+
+
+{-
 data RecordId a where
   RecordId :: Text -> RecordId a
   deriving (Generic, Eq, Show, Ord)
-  deriving anyclass (Binary, NFData, Atomable )
-
-{-
-instance Atomable (RecordId a) where
-  toAtom (RecordId (SafeId bs)) = TextAtom $ decodeUtf8 bs
-  fromAtom (TextAtom t) = RecordId . SafeId $ encodeUtf8 t
-  fromAtom _ = error "improper fromAtom"  
-  toAtomType _ = TextAtomType
-  toAddTypeExpr _ = NoOperation
+  deriving anyclass (Serialise, NFData, Atomable )
 -}
+
 
 instance Arbitrary (RecordId a) where
   arbitrary = do
@@ -180,12 +185,9 @@ type DbGen = StdGen
 type ShortText = Text
 
 
-data Gender =
-    GenderFemale
-  | GenderMale
-  | GenderUnspecified
-  deriving (Generic, Eq, Ord, Show, Binary, NFData, Atomable, Arbitrary)
 
-type DateOfBirth = Time.Day
-
+class HasUniqueKey a where
+  type UniqueKey a :: Symbol
+  type UniqueKeyType a :: *
+  uniqueKey :: a -> UniqueKeyType a
 

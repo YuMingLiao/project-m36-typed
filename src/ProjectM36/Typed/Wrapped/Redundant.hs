@@ -3,7 +3,7 @@
 
 module ProjectM36.Typed.Wrapped.Redundant where
 
-import RIO
+import RIO  
 
 removeMeIfNotNeeded :: Bool
 removeMeIfNotNeeded = True

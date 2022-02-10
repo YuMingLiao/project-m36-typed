@@ -5,9 +5,10 @@
 module ProjectM36.Typed.Interface where
 import RIO
 import ProjectM36.Typed.Execute
-import ProjectM36.Typed.Ops
+import qualified ProjectM36.Typed.Ops as Op
 import ProjectM36.Typed.Internal
 import ProjectM36.Typed.DB.Types
+import ProjectM36.Tupleable
 import Data.Maybe
 import Data.Either
 import Control.Applicative
@@ -16,81 +17,91 @@ import Prelude (zipWith)
 import Data.UUID
 import Data.UUID.V4
 import Debug.Trace as D
-
+import GHC.TypeLits
+import ProjectM36.Atomable
+import ProjectM36.Base
+import Control.Monad.Error
 -- Identifiable: Custom Unique Constraint as Identifiers
 -- Recordable: RecordId a using UUID as Identifiers, or using auth id.
-type Databasable env db m a = (
+
+type Queryable env db m = (
   HasLogFunc (env db), 
   HasDbConnection env db,
   MonadReader (env db) m,
   MonadIO m,
+  MonadError DbErrorQ m
+  )
+
+type Relationable env db m a = (
+  HasLogFunc (env db), 
+  HasDbConnection env db,
+  MonadReader (env db) m,
+  MonadIO m,
+  MonadError DbErrorQ m,
   AppRecordMeta a,
-  IsDbType a,
-  HasNamedDbType db (AppRecordName a) (DbRecord a)
-  ) 
-
-throwDbError :: (MonadIO m, Applicative m) => Either DbErrorQ a -> m a
-throwDbError = either (liftIO . throwIO) pure
+  HasNamedDbType db (AppRecordName a) a
+  )
 
 
-insertUUID :: forall env db m a. Databasable env db m a => a -> m (DbRecord a)
-insertUUID a = do
-  uuid <- liftIO nextRandom 
-  e <- executeUpdateM (insertRecordT @db (RecordId (toText uuid)) a)
-  r <- throwDbError e
-  return r
+type Crudable env db m a = (
+  Relationable env db m a,
+  Op.Uniqueable a
+  )
 
-insertUUID_ID :: forall env db m a. Databasable env db m a => a -> m (RecordId a)
-insertUUID_ID a = dbRecordId <$> insertUUID a
+insert :: forall env db m a. Relationable env db m a => a -> m a
+insert a = throwQ $  executeUpdateM (Op.insertT @db @a a)
 
+-- TODO: curd need insert (tag id), but now User userIdent is decided by login.
 
+get :: forall env db m a. Crudable env db m a => UniqueKeyType a -> m (Maybe a)
+get i = throwQ $ executeQueryM (Op.get @db @a i)
 
-insertCustomIdR :: forall env db m a. Databasable env db m a => RecordId a -> a -> m (DbRecord a)
-insertCustomIdR i a = do
-  e <- executeUpdateM @env @db (insertRecordT @db i a)
-  throwDbError e
+upsert :: forall env db m a. Crudable env db m a => a -> m ()
+upsert a = do
+  ma <- throwQ $ executeQueryM (Op.get @db @a (uniqueKey a))
+  case ma of
+    Nothing -> do insert a
+                  return ()
+    Just v -> replace (uniqueKey v) a
+ 
+getWhereU :: forall env db m a. Crudable env db m a => AtomExpr -> m (Maybe a)
+getWhereU atomExpr = throwQ $ executeQueryM (Op.getWhereU @db @a atomExpr)
 
+getWhere :: forall env db m a. Relationable env db m a => [(AttributeName, AtomExpr)] -> m [a]
+getWhere xs = throwQ $ executeQueryM (Op.getWhere @db @a xs)
 
-getRec :: forall env db m a. Databasable env db m a => RecordId a -> m (Maybe (DbRecord a))
-getRec i = do
-  e <- executeQueryM (getR @db i) 
-  r <- throwDbError e
-  return r
-
-get :: forall env db m a. Databasable env db m a => RecordId a -> m (Maybe a)
-get i = fmap (fmap dbRecordRecord) $ getRec i
+queryRelExpr :: forall env db m. Queryable env db m => RelationalExpr -> m Relation
+queryRelExpr relExpr = throwQ $ executeQueryM (Op.queryRelExpr @db relExpr)
 
 {-
-getBy f v = do
-  r <- throwDbError =<< executeQueryM (getByFieldR f v) 
-  return (dbRecordRecord <$> r)
+boolRE :: forall. env db m. Queryable env db m => RelationalExpr -> m Bool
+boolRE relExpr = do
+  re <- queryRelExpr relExpr  
+  
+  return $ bool True False 
 -}
+fetch :: forall env db m a. Relationable env db m a => m [a]
+fetch = throwQ $ executeQueryM (Op.fetchT @db) 
 
 
-fetchPair :: forall env db m a. Databasable env db m a => m [(RecordId a, a)]
+ 
+fetchPair :: forall env db m a. Crudable env db m a => m [(UniqueKeyType a, a)]
 fetchPair = do
-  e <- executeQueryM (fetchR @db) 
-  rs <- throwDbError e
-  return $ zipWith (,) (dbRecordId <$> rs) (dbRecordRecord <$> rs)
+  rs <- throwQ $ executeQueryM (Op.fetchT @db) 
+  return $ zipWith (,) (uniqueKey <$> rs) (rs)
 
-fetch :: forall env db m a. Databasable env db m a => m [a]
-fetch = do
-  e <- executeQueryM (fetchNoR @db) 
-  throwDbError e
-
-replace :: forall env db m a. Databasable env db m a => RecordId a -> a -> m ()
+replace :: forall env db m a. Crudable env db m a => UniqueKeyType a -> a -> m ()
 replace i a = do
-  e <- executeUpdateM @env @db @m (updateR @db @a i a) 
-  throwDbError e
+  throwQ $ executeUpdateM @env @db @m (Op.update @db i a) 
   return ()
 
-deleteHard :: forall env db m a. Databasable env db m a => RecordId a -> m ()
-deleteHard i = do
-  emr <- executeQueryM @env @db @m @(Maybe (DbRecord a)) $ getR @db @a i
-  mr <- throwDbError emr
-  case mr of
-       Nothing -> errNoRecord i
-       Just r -> do
-           eRes <- executeUpdateM @env @db $ deleteHardR @db @a r
-           throwDbError eRes
+delete :: forall env db m a. Crudable env db m a => UniqueKeyType a -> m ()
+delete i = do
+  m <-throwQ $ executeQueryM @env @db @m @(Maybe a) $ Op.get @db @a i
+  case m of
+       Nothing -> error ("Not found: " ++ show i)
+       Just a -> throwQ $ executeUpdateM @env @db $ Op.delete @db @a a
+
+
+
 

@@ -1,5 +1,4 @@
-
-{-# LANGUAGE DerivingStrategies, DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies, DeriveAnyClass, DataKinds, StandaloneDeriving, TypeOperators, TypeFamilies, DeriveGeneric #-}
 import Test.TypeSpec
 import ProjectM36.Typed
 import ProjectM36.Typed.DB.Types
@@ -9,11 +8,13 @@ import Test.QuickCheck as QC
 import Prelude 
 import Data.Text
 import GHC.Generics
+import Control.DeepSeq
+import Data.Binary
 
 main :: IO ()
 main = print spec0
 
-spec0 :: Expect (AppSchema `ShouldBe` Bool)
+spec0 :: Expect (AppSchema `Isn't` Bool)
 spec0 = Valid
 
 
@@ -22,6 +23,7 @@ data User = User
   , userLastName :: Text
   , userEmail :: Text
   , userDateOfBirth :: Maybe DateOfBirth
+  , userAddress :: Address
   } deriving (Generic)
 
 data Address = Address
@@ -67,6 +69,9 @@ instance Arbitrary Address where arbitrary = SOP.garbitrary
 instance AppRecordMeta Address where
   type AppRecordName Address = "Address"
 instance Tupleable Address
+instance NFData Address
+instance Binary Address
+instance Atomable Address
 
 deriving instance Eq PhoneNumber
 deriving instance Ord PhoneNumber

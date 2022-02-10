@@ -16,6 +16,7 @@ import ProjectM36.Atomable
 import Data.Text.Encoding
 import ProjectM36.Base
 
+import Codec.Winery
 
 -- class Tupleable v => ProjectM36Entity v where
 
@@ -50,7 +51,7 @@ newtype SafeId = SafeId B.ByteString
 -}
 data SafeId = SafeId B.ByteString
   deriving (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData, Binary)
+  deriving anyclass (NFData, Binary, Serialise)
 
 instance Atomable SafeId where
   toAtom (SafeId bs)= TextAtom (decodeUtf8 bs)

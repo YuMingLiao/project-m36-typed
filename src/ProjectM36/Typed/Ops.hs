@@ -3,12 +3,13 @@
 {-# LANGUAGE TypeApplications #-}
 module ProjectM36.Typed.Ops where
 
-import RIO hiding (toList)
-import qualified RIO.List as L
-import Data.List
+import RIO hiding (toList, and, (&&&))
+import qualified RIO.List as L hiding (and, (&&&))
+import Data.List hiding (and)
 import ProjectM36.Base
 import ProjectM36.Client
 import ProjectM36.Tupleable (Tupleable(..), toInsertExpr, toDeleteExpr, toUpdateExpr)
+import ProjectM36.Typed.TypeFunctions (IsJust, FromJust)
 import Data.Proxy(Proxy(..))
 
 import Control.Monad.Except
@@ -22,6 +23,8 @@ import Data.Text as T (pack)
 import Data.UUID.V4
 import Data.UUID
 import Debug.Trace as D
+import ProjectM36.Typed.ShortCut
+import GHC.TypeLits
 
 type SchemaOpM env m = (MonadError DbErrorQ m, MonadIO m, MonadReader env m)
 
@@ -56,7 +59,7 @@ createSchema sid conn sc@(QDbSchema schemaP) = do
     sortByWeight :: [DatabaseContextExpr] -> [DatabaseContextExpr]
     sortByWeight xs = map fst $ L.sortBy (comparing snd) $ map (\e -> (e, dceWeight e)) xs
     dceWeight :: DatabaseContextExpr -> Int
-    dceWeight (AddTypeConstructor a b) = D.traceShow (AddTypeConstructor a b) 5
+    dceWeight (AddTypeConstructor a b) = 5
     dceWeight (Define _ _) = 10
     dceWeight (AddInclusionDependency _ _ ) = 15
     dceWeight _ = 20
@@ -97,13 +100,16 @@ createSchema sid conn sc@(QDbSchema schemaP) = do
     isExpectedError (InclusionDependencyNameInUseError _) = True
     isExpectedError _ = False
 
-
-
+toList :: (Tupleable a, Show a) => Relation -> Either RelationalError [a]
+toList rel = mapM fromTuple (relationTuples rel)
 
 rvname :: forall a. AppRecordMeta a => Text
 rvname = showSymbol $ Proxy @(AppRecordName a)
 
---crud for a plain a (not DbRecord a)
+ukname :: forall a. (HasUniqueKey a, KnownSymbol (UniqueKey a))  => Text
+ukname = showSymbol $ Proxy @(UniqueKey a)
+
+insertT :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) a) => a -> UpdateM db a
 insertT a = do
   insertBulkT [a]
   return a
@@ -119,29 +125,36 @@ fetchT = do
   rel <- throwQ $ executeQuery (RelationVariable (rvname @a) ())
   liftEitherQ $ toList rel 
 
-{- TODO: getBy should type-check if the field is UniqueConstraint
-getByUniqueConstraintExpr rv rid = Restrict restrictionPredicate (RelationVariable rv ())
-  where restrictionPredicate = AttributeEqualityPredicate "dbRecordId" (NakedAtomExpr (toAtom rid))
--}
+type Uniqueable a = (HasUniqueKey a, KnownSymbol (UniqueKey a), Atomable (UniqueKeyType a))
 
-{-
---it may not get what you want when the field is not unique constraint
-getByFieldR :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) a) => Text -> RecordId a -> QueryM db (Maybe (DbRecord a))
-getByFieldR field value = do
-  rel <- throwQ $ executeQuery $ getByExpr (rvname @a) field value
+get :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) a, Uniqueable a) => UniqueKeyType a -> QueryM db (Maybe a)
+get rId = do 
+  rel <- throwQ $ executeQuery $ getByUniqueConstraintExpr 
   as  <- liftEitherQ $ toList rel 
   return (listToMaybe as)
--}
+    where getByUniqueConstraintExpr = (rvname @a) @~ (ukname @a) ?= rId
+
+
+getWhereU :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) a, Uniqueable a) => AtomExpr -> QueryM db (Maybe a)
+getWhereU atomExpr = do 
+  rel <- throwQ $ executeQuery $ (rvname @a) @~ (ukname @a) ?= atomExpr
+  as  <- liftEitherQ $ toList rel 
+  return (listToMaybe as)
+
+getWhere :: forall db a.(AppRecordMeta a, HasNamedDbType db (AppRecordName a) a) => [(AttributeName, AtomExpr)] -> QueryM db [a]
+getWhere xs = do 
+  rel <- throwQ $ executeQuery $ (rvname @a) @~ (foldl1 (&&&) (fmap (uncurry (?=)) xs)) -- attrName ?= atomExpr
+  as  <- liftEitherQ $ toList rel 
+  return as
+
+
+
+queryRelExpr :: forall db. RelationalExpr -> QueryM db Relation
+queryRelExpr relExpr = do
+  rel <- throwQ $ executeQuery $ relExpr 
+  return rel
 
 {-
-getT :: forall db name a . (AppRecordMeta a, HasNamedDbType db name a) => RecordId a -> QueryM db (Maybe a)
-getT rid = do
-  traceM . T.pack $ "querying " ++ show rid
-  rec <- getR rid
-  return (dbRecordRecord rec)
--}
-
-
 -- crud for DbRecord
 mkNewRec a ident now = DbRecord {
     dbRecordRecord = a,
@@ -177,9 +190,6 @@ insertRecordT i a = do
 
 insertRecordBulkT as = mapM insertRecordT as
 
-toList :: (Tupleable a, Show a) => Relation -> Either RelationalError [a]
-toList rel = mapM fromTuple (relationTuples rel)
-
 getRecordExpr rv rid = Restrict restrictionPredicate (RelationVariable rv ())
   where restrictionPredicate = AttributeEqualityPredicate "dbRecordId" (NakedAtomExpr (toAtom rid))
 
@@ -196,6 +206,13 @@ fetchNoR = do
   recs <- fetchR @db 
   return (dbRecordRecord <$> recs)
 
+fetchSub :: forall db a b. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) a, Tupleable b, Show b) => QueryM db [b]
+fetchSub = do
+  rel <- throwQ $ executeQuery (RelationVariable (rvname @a) ())
+  liftEitherQ $ (toList rel  :: Either RelationalError [b])
+
+
+
 getR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> QueryM db (Maybe (DbRecord a))
 getR rid = do
     rel <- throwQ . executeQuery $ getRecordExpr (rvname @a) rid
@@ -205,12 +222,7 @@ getR rid = do
 errNoRecord rid = error ("No record is found by " ++ show rid)
 
 
-deleteHardR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => DbRecord a -> UpdateM db ()
-deleteHardR r = do
-  e <- liftEitherQ $ toDeleteExpr (rvname @a) ["dbRecordId"] r 
-  throwQ $ executeUpdate e
-  return ()
-
+-}
 {-
 deleteSoftR :: forall db name a. (AppRecordMeta a, HasNamedDbType db name a)=> RecordId a -> UpdateM db ()
 deleteSoftR rid = do
@@ -227,21 +239,26 @@ deleteSoftR rid = do
      where softDelete x = x { dbRecordDeleted = RecordSoftDeleted True }
 -}
 
-updateR :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) (DbRecord a)) => RecordId a -> a -> UpdateM db ()
-updateR i a = do
-    rel <- throwQ . executeQuery $ getRecordExpr (rvname @a) i  
-    as  <- liftEitherQ $ toList rel 
+
+errIDNotExist i = error (show i ++ " is not found.")
+
+update :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) a, Uniqueable a) => UniqueKeyType a -> a -> UpdateM db ()
+update i new = do
+    let getByUniqueConstraintExpr = (rvname @a) @~ (ukname @a) ?= i
+    rel <- throwQ . executeQuery $ getByUniqueConstraintExpr 
+    as  <- liftEitherQ $ toList @a rel 
     case (listToMaybe as) of
-         Nothing -> errNoRecord i 
-         Just r -> do
-             now <- getCurrentTimeM
-             let modified = r {
-                   dbRecordRecord = a,
-                   dbRecordLastModified = RecordLastModified (Just now)
-                 }
-             e <- liftEitherQ $ toUpdateExpr (rvname @a) ["dbRecordId"] modified
+         Nothing -> errIDNotExist i 
+         Just _ -> do
+             e <- liftEitherQ $ toUpdateExpr (rvname @a) [ukname @a] new
              throwQ $ executeUpdate e
              return ()
+
+delete :: forall db a. (AppRecordMeta a, HasNamedDbType db (AppRecordName a) a, Uniqueable a) => a -> UpdateM db ()
+delete ent = do
+  e <- liftEitherQ $ toDeleteExpr (rvname @a) [ukname @a] ent 
+  throwQ $ executeUpdate e
+  return ()
 
 
 

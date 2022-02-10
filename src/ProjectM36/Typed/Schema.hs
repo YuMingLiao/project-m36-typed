@@ -1,5 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 
 module ProjectM36.Typed.Schema where
 
@@ -34,15 +35,15 @@ import Data.Time.Calendar (Day)
 
 class (KnownSymbol (AppRecordName a ), Generic a) => AppRecordMeta a where
   type AppRecordName a :: Symbol
-  type AppRecordName a = TypeName (Rep a) 
+--  type AppRecordName a = TypeName (Rep a) 
 
+{-
 instance (AppRecordMeta a) => AppRecordMeta (DbRecord a) where
   type AppRecordName (DbRecord a) = AppRecordName a
 
-
 showAppRecordName :: forall p a. (AppRecordMeta a) => p a -> T.Text
 showAppRecordName _ = showSymbol (Proxy :: Proxy (AppRecordName a))
-
+-}
 
 class (Typeable a, AppRecordMeta a, SOP.Generic a, SOP.HasDatatypeInfo a, Arbitrary a, Eq a, Show a) => IsAppType a
 instance (Typeable a, AppRecordMeta a, SOP.Generic a, SOP.HasDatatypeInfo a, Arbitrary a, Eq a, Show a) => IsAppType a
@@ -67,16 +68,8 @@ type IsValidAppSchema db = (
 data QSchema schema where
  QSchema :: IsValidAppSchema schema => Proxy schema -> QSchema schema
 
-
-
-
-
-
-
 mkSchema :: IsValidAppSchema schema => QSchema schema
 mkSchema = QSchema $ Proxy
-
-
 
 instance WithCDictionary Typeable (QSchema schema) where
   type CDictionaryList Typeable (QSchema schema) = ExtractUniqueRelVarBaseTypes schema
@@ -136,8 +129,6 @@ type MustHaveTypes = RemoveTypes (Int : '[]) (ExtractFieldTypes (DbRecord Int))
 type BuiltInMaybeTypes = TMap Maybe BuiltInPrimitiveTypes
 type BuiltInTypes = Union BuiltInPrimitiveTypes BuiltInMaybeTypes
 
-
-
 type family InjectConstraints a where
   InjectConstraints a = InjectConstraintsBase a a
 
@@ -145,7 +136,6 @@ type family InjectConstraintsBase schema a where
   InjectConstraintsBase schema (a :& b) = InjectConstraintsBase schema a :& InjectConstraintsBase schema b
   InjectConstraintsBase schema (a :$ existingConstraints) = a :$ Union (DeriveConstraints schema a) existingConstraints
   InjectConstraintsBase schema a = a :$ (DeriveConstraints schema a)
-
 
 type family DeriveConstraints schema a :: [* -> *] where
   DeriveConstraints schema a = (TMap CreateNewDatatype (DeriveNewDatatypes schema a)) +++ (DeriveUniqueConstraints schema a) +++ (DeriveForeignConstraints schema a)

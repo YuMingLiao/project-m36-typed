@@ -1,4 +1,3 @@
-{-# LANGUAGE DerivingStrategies, DeriveAnyClass #-}
 module Main where
 
 
@@ -9,12 +8,9 @@ import Test.Tasty.QuickCheck
 import Test.Tasty.HUnit
 import ProjectM36.Typed
 import ProjectM36.Typed.DB.Types
-import ProjectM36.Typed.Ops
 import qualified Generics.SOP as SOP
 import qualified Generics.SOP.Arbitrary as SOP
 import Test.QuickCheck as QC
-import Data.Binary
-import Codec.Winery.Class
 
 main :: IO ()
 main = do
@@ -25,10 +21,12 @@ tests = testGroup "Tests" $ [
     testCaseSteps "insertRecord" unit_insertRecord
   ]
 
+
 data AppEnv db = AppEnv LogFunc (DbConnection db)
 
 instance HasDbConnection (AppEnv) db where
   dbConnectionL = lens (\(AppEnv _ c) -> c) (\(AppEnv l _) db -> AppEnv l db)
+
 
 instance HasLogFunc (AppEnv db) where
   logFuncL = lens (\(AppEnv l _) -> l) (\(AppEnv _ db) l -> AppEnv l db)
@@ -39,35 +37,28 @@ unit_insertRecord step = do
   let logOptions' = setLogUseTime True logOptions
   withLogFunc logOptions' $ \lf -> do
     step "Connecting to db"
-    eRes <-  connectProjectM36T lf (InProcessConnectionInfo (CrashSafePersistence "./db") emptyNotificationCallback []) dbSchema
-    conn <- either (throwIO) pure eRes
+    eRes <-  connectProjectM36T lf (InProcessConnectionInfo NoPersistence emptyNotificationCallback []) dbSchema
+    conn <- either (throwIO ) pure eRes
     runRIO (AppEnv lf conn) $ do
+      (ps :: [PhoneNumber]) <- liftIO $ QC.generate $ sequence $ replicate 100 (arbitrary)
+      eRa <- mapM (\p -> executeUpdateM $ insertT (Proxy :: Proxy "PhoneNumbers") p) ps
+      void $ mapM (either throwIO pure) eRa
 
-      (ps_ :: [User]) <- liftIO $ QC.generate $ sequence $ replicate 10 (arbitrary)
-      eRa <- executeUpdateM $ insertBulkT ps_
-      ps  <- (either throwIO pure) eRa
-
-      ePs <- executeQueryM $ fetchT
+      ePs <- executeQueryM $ fetchT (Proxy :: Proxy "PhoneNumbers")
       ps1 <- either (throwIO ) pure ePs
 
       liftIO $ assertBool "Inserted numbers did not match fetched numbers" (L.sort ps == L.sort ps1)
 
+      --pure $ testEquality (eRa) ps
 
--- a new datatype for database
-data Credentials = A | B | C 
-  deriving (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData, Binary, Atomable, Serialise)
-instance Arbitrary Credentials where
-  arbitrary = pure A
 
-deriving instance Binary DateOfBirth
 data User = User
   { userFirstName :: Text
   , userLastName :: Text
   , userEmail :: Text
   , userDateOfBirth :: Maybe DateOfBirth
---  , userCredentials :: Credentials 
-  } deriving (Generic, NFData, Binary)
+  --, userCredentials :: Credentials
+  } deriving (Generic)
 
 
 
@@ -78,22 +69,22 @@ data Address = Address
   , addressCounty :: Maybe Text
   , addressCountry :: Maybe Text
   , addressPostcode :: Maybe Text
-  , addressOwnerEmail :: Text 
---  , addressOwner :: RecordId User
-  } deriving (Generic, NFData, Binary)
+ -- , addressOwner :: RecordId User
+  } deriving (Generic)
 
 
 data PhoneNumber = PhoneNumber
   { phoneNumberNumber :: Text
   , phoneNumberComment :: Maybe Text
----  , phoneNumberOwner :: RecordId User
-  } deriving (Generic, NFData, Binary)
+--, phoneNumberOwner :: RecordId User
+  } deriving (Generic)
 
-type AppSchema = (
-     (Define "Users" (DbRecord User)) -- :$ ('[UniqueConstraint '["userEmail"]]) 
-   :&  (Define "Addresses" Address) -- :$ ('[ForeignConstraint '["addressOwnerEmail"] (Define "Users" User) '["userEmail"]])
-   :& (Define "PhoneNumbers" PhoneNumber) :$ '[UniqueConstraint '["phoneNumberNumber"]] 
+type AppSchema = InjectConstraints (
+    (Define "Users" User)
+  :& (Define "Addresses" Address)
+  :& (Define "PhoneNumbers" PhoneNumber)
   )
+
 
 
 deriving instance Eq User
@@ -103,7 +94,7 @@ instance SOP.Generic User
 instance SOP.HasDatatypeInfo User
 instance Arbitrary User where arbitrary = SOP.garbitrary
 instance AppRecordMeta User where
-  type AppRecordName User = "Users"
+  type AppRecordName User = "User"
 instance Tupleable User
 
 deriving instance Eq Address
@@ -113,8 +104,9 @@ instance SOP.Generic Address
 instance SOP.HasDatatypeInfo Address
 instance Arbitrary Address where arbitrary = SOP.garbitrary
 instance AppRecordMeta Address where
-  type AppRecordName Address = "Addresses"
+  type AppRecordName Address = "Address"
 instance Tupleable Address
+
 
 deriving instance Eq PhoneNumber
 deriving instance Ord PhoneNumber
@@ -123,11 +115,11 @@ instance SOP.Generic PhoneNumber
 instance SOP.HasDatatypeInfo PhoneNumber
 instance Arbitrary PhoneNumber where arbitrary = SOP.garbitrary
 instance AppRecordMeta PhoneNumber where
-  type AppRecordName PhoneNumber = "PhoneNumbers"
+  type AppRecordName PhoneNumber = "PhoneNumber"
 instance Tupleable PhoneNumber
 
 --schema :: QSchema ( AppSchema)
 --schema = mkSchema
 
-dbSchema :: QDbSchema (InjectConstraints AppSchema)
+dbSchema :: QDbSchema AppSchema
 dbSchema = mkDbSchema

@@ -16,7 +16,7 @@ import qualified  RIO.Set as S
 import ProjectM36.Base
 import ProjectM36.Tupleable
 import ProjectM36.Relation
-import ProjectM36.Atomable
+import ProjectM36.Atomable hiding (showSymbol)
 
 import GHC.TypeLits
 import Data.Proxy(Proxy(..))
@@ -37,8 +37,6 @@ instance (Typeable a, SOP.Generic a, SOP.HasDatatypeInfo a, Tupleable a, Arbitra
 
 class (Elem a (ExtractRelVars schema) ~ 'True, IsDbType a) => HasDbType schema a
 instance (Elem a (ExtractRelVars schema) ~ 'True, IsDbType a) => HasDbType schema a
-
-
 
 
 class (HasDbType schema a, KnownSymbol name, LookupRelVarType schema name ~ a) => HasNamedDbType schema name a
@@ -193,9 +191,6 @@ instance (KnownSymbol name) => ToRelationalExpr (Define name (a :: *)) where
   type RelationalExprT (Define name a) = RelationalExpr
   type AvailableFields (Define name a) = ExtractFieldNames a
   toRelationalExpr _ = RelationVariable (showSymbol (Proxy :: Proxy name)) ()
-
-
-
 
 
 

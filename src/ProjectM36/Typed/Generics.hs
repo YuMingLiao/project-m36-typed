@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 module ProjectM36.Typed.Generics where
 
 

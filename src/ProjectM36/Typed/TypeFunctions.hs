@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 
 module ProjectM36.Typed.TypeFunctions where
 
@@ -44,11 +45,29 @@ type family ExtractFieldsG (r :: * -> *) :: [Field Symbol *] where
   ExtractFieldsG (l :*: r)
     = Union (ExtractFieldsG l) (ExtractFieldsG r)
   ExtractFieldsG (S1 ('MetaSel ('Just name) _ _ _) (Rec0 t))
-    = '[ 'Field name t]
+    = '[ 'Field name t] 
   ExtractFieldsG (M1 _ m a)
     = ExtractFieldsG a
   ExtractFieldsG _
     = '[]
+{-
+-- R stands for Recursively
+type family ExtractFieldsR (r :: *):: [Field Symbol *] where
+  ExtractFieldsR (DbRecord a) = Union (ExtractFieldsRG (Rep a)) (ExtractFieldsRG (Rep (DbRecord a)))
+  ExtractFieldsR a = ExtractFieldsRG (Rep a)
+
+type family ExtractFieldsRG (r :: * -> *) :: [Field Symbol *] where
+  ExtractFieldsRG (l :*: r)
+    = Union (ExtractFieldsRG l) (ExtractFieldsRG r)
+  ExtractFieldsRG (C1 _ m a)
+    = ExtractFieldsRG a
+  ExtractFieldsRG (S1 ('MetaSel ('Just name) _ _ _) (Rec0 t))
+    = Union '[ 'Field name t] (ExtractFieldsR t)
+  ExtractFieldsRG (S1 ('MetaSel Nothing _ _ _) (Rec0 t))
+    = '[]
+  ExtractFieldsRG (M1 _ m a)
+    = ExtractFieldsRG a
+-}
 
 
 
@@ -103,6 +122,14 @@ type family Or (a :: Bool) (b :: Bool) :: Bool where
     Or a 'True = 'True
     Or a a = a
 
+type family IsJust (a :: Maybe k) :: Bool where
+  IsJust ('Just _) = 'True
+  IsJust 'Nothing  = 'False
+
+type family FromJust (a :: Maybe k) :: k where
+  FromJust ('Just a) = a
+  FromJust 'Nothing  = TypeError ('Text "FromJust from a Nothing type.")
+
 
 type family UniqueElements (a :: [k]) :: Bool where
   UniqueElements '[] = 'True
@@ -131,7 +158,7 @@ type family NotWithErr (a :: Bool) (err :: ErrorMessage) = (res :: Bool)  where
     NotWithErr 'False _ = 'True
     NotWithErr 'True err = TypeError err
 
-type family TConcatMap (f :: * -> [*]) (xs :: [*]) :: [*] where
+type family TConcatMap (f :: k -> [j]) (xs :: [k]) :: [j] where
    TConcatMap f '[]       = '[]
    TConcatMap f (x ': xs) = Union (f x) (TConcatMap f xs)
 
@@ -156,7 +183,7 @@ type family Union (a :: [k]) (b :: [k]) = (res :: [k]) where
 
 type family
   ExtractNullaryTypes (a :: [typ]) :: [nullary_typ] where
-  ExtractNullaryTypes ((f x) : xs) = ExtractNullaryTypes xs
+  ExtractNullaryTypes ((f x) : xs) = x : ExtractNullaryTypes xs
   ExtractNullaryTypes (x : xs)     = x : ExtractNullaryTypes xs
   ExtractNullaryTypes '[]          = '[]
 
@@ -197,6 +224,9 @@ type family Zip (as :: [k]) (bs :: [j]) = (res :: [Tup k j]) where
   Zip (a ': as) (b ': bs) = 'Tup a b ': Zip as bs
   Zip as bs= TypeError ('Text "Type family Zip expected two lists of equal length, got" ':$$: 'ShowType as ':$$: 'ShowType bs)
 
+
 type family RemoveTypes (remove :: [k]) (xs :: [k]) where
   RemoveTypes _ '[] = '[]
   RemoveTypes remove (x ': xs) = Union (If (Elem x remove) '[] '[x]) (RemoveTypes remove xs)
+
+

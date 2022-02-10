@@ -1,0 +1,16 @@
+σ selection/where 
+π project
+⨯ join
+∪ union
+- deference/minus
+ρ rename rho
+∩ intersection
+⨝ natural join
+⟕ left outer join ...
+÷ division
+= equal to
+≡ identical to
+group
+ungroup
+→ 
+antijoin

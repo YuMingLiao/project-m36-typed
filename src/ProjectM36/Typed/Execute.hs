@@ -261,4 +261,3 @@ liftEitherQ = either (throwError . toDbErrorQ) pure
 throwQ :: (ToDbErrorQ e, MonadError DbErrorQ m) => m (Either e a) -> m a
 throwQ a = a >>= liftEitherQ
 
-
