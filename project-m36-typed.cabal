@@ -39,7 +39,8 @@ library
     uuid,
     word8,
     quickcheck-instances,
-    splitmix
+    splitmix,
+    time
 
 
 
