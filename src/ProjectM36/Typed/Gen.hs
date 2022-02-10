@@ -31,6 +31,8 @@ instance (Monad m) => Monad (GenT m) where
     let (r1, r2) = R.split r
     a <- unGenT m r1 n
     unGenT (k a) r2 n
+
+instance (MonadFail m) => MonadFail (GenT m) where
   fail msg = GenT (\_ _ -> fail msg)
 
 instance (Functor m, Monad m) => Applicative (GenT m) where
