@@ -1,11 +1,11 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingVia #-}
 module ProjectM36.Typed.DB.Types where
 
 import RIO
---import qualified RIO.Time as Time
-import qualified Data.Time.Clock as Time
-import qualified Data.Time.Calendar as Time
+import qualified RIO.Time as Time
+import Data.Binary.Instances.Time()
 
 import System.Random
 
@@ -19,14 +19,10 @@ import qualified Generics.SOP.Arbitrary as SOP
 import Test.QuickCheck.Arbitrary
 import ProjectM36.Typed.Gen
 
-type Date = Time.UTCTime
+import GHC.Generics()
 
-deriving instance Generic Date
-deriving instance Generic Time.Day
-deriving instance Binary Time.Day
-instance Binary Time.UTCTime
-deriving instance Generic Time.DiffTime
-instance Binary Time.DiffTime
+type Date = Time.UTCTime
+  
 
 newtype RecordSoftDeleted = RecordSoftDeleted Bool
   deriving (Eq, Ord, Show, Generic)

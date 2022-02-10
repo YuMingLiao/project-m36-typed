@@ -40,7 +40,7 @@ library
     word8,
     quickcheck-instances,
     splitmix,
-    time
+    binary-instances
 
 
 

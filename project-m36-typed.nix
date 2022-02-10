@@ -1,16 +1,17 @@
-{ mkDerivation, base, basic-sop, binary, binary-orphans, criterion
-, generics-sop, mtl, project-m36, QuickCheck, quickcheck-instances
-, random, rio, lib, tasty, tasty-hunit, tasty-quickcheck
-, tf-random, type-level-sets, uuid, word8
+{ mkDerivation, base, basic-sop, binary, binary-instances
+, binary-orphans, criterion, generics-sop, mtl, project-m36
+, QuickCheck, quickcheck-instances, random, rio, splitmix, lib 
+, tasty, tasty-hunit, tasty-quickcheck, tf-random, type-level-sets
+, uuid, word8
 }:
 mkDerivation {
   pname = "project-m36-typed";
   version = "0.0.0.1";
   src = ./.;
   libraryHaskellDepends = [
-    base basic-sop binary binary-orphans generics-sop mtl project-m36
-    QuickCheck quickcheck-instances random rio tf-random
-    type-level-sets uuid word8
+    base basic-sop binary binary-instances binary-orphans generics-sop
+    mtl project-m36 QuickCheck quickcheck-instances random rio splitmix
+    tf-random type-level-sets uuid word8
   ];
   testHaskellDepends = [
     base basic-sop generics-sop QuickCheck rio tasty tasty-hunit
