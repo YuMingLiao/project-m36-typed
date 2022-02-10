@@ -7,7 +7,7 @@ import qualified RIO.List as L
 import ProjectM36.Base
 import ProjectM36.Client
 import ProjectM36.Tupleable (Tupleable(..), toInsertExpr)
-import Data.Proxy(Proxy(..))
+import Data.Proxy()
 
 import Control.Monad.Except
 

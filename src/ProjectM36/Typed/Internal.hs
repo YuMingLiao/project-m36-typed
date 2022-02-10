@@ -18,7 +18,8 @@ import ProjectM36.Tupleable
 import ProjectM36.Relation
 
 import GHC.TypeLits
-import Data.Proxy(Proxy(..))
+import Data.Proxy()
+import Data.Kind
 import qualified Generics.SOP as SOP
 import Generics.SOP.Constraint
 import Generics.SOP.NP
@@ -188,7 +189,7 @@ instance (ToRelationalExpr rel, RelationalExprT rel ~ RelationalExpr) => ToRelat
 
 
 
-instance (KnownSymbol name) => ToRelationalExpr (Define name (a :: *)) where
+instance (KnownSymbol name) => ToRelationalExpr (Define name (a :: Type)) where
   type RelationalExprT (Define name a) = RelationalExpr
   type AvailableFields (Define name a) = ExtractFieldNames a
   toRelationalExpr _ = RelationVariable (showSymbol (Proxy :: Proxy name)) ()

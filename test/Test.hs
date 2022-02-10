@@ -47,7 +47,8 @@ unit_insertRecord step = do
 
       ePs <- executeQueryM $ fetchT (Proxy :: Proxy "PhoneNumbers")
       ps1 <- either (throwIO ) pure ePs
-
+      liftIO $ print $ L.length ps
+      liftIO $ print $ L.length ps1
       liftIO $ assertBool "Inserted numbers did not match fetched numbers" (L.sort ps == L.sort ps1)
 
       --pure $ testEquality (eRa) ps
@@ -77,7 +78,7 @@ data Address = Address
 data PhoneNumber = PhoneNumber
   { phoneNumberNumber :: Text
   , phoneNumberComment :: Maybe Text
---, phoneNumberOwner :: RecordId User
+--  , phoneNumberOwner :: RecordId User
   } deriving (Generic)
 
 type AppSchema = InjectConstraints (
