@@ -51,8 +51,7 @@ library
                        -Wredundant-constraints
                        -Werror
   default-language:    Haskell2010
-  default-extensions:  AutoDeriveTypeable
-                       BangPatterns
+  default-extensions:  BangPatterns
                        BinaryLiterals
                        ConstraintKinds
                        DataKinds
@@ -74,7 +73,6 @@ library
                        InstanceSigs
                        KindSignatures
                        LambdaCase
-                       MonadFailDesugaring
                        MultiParamTypeClasses
                        MultiWayIf
                        NamedFieldPuns
@@ -140,7 +138,6 @@ test-suite project-m36-typed-test
                        InstanceSigs
                        KindSignatures
                        LambdaCase
-                       MonadFailDesugaring
                        MultiParamTypeClasses
                        MultiWayIf
                        NamedFieldPuns
@@ -188,8 +185,7 @@ benchmark project-m36-benchmark
 
 
   default-language:    Haskell2010
-  default-extensions:  AutoDeriveTypeable
-                       BangPatterns
+  default-extensions:  BangPatterns
                        BinaryLiterals
                        ConstraintKinds
                        DataKinds
@@ -210,7 +206,6 @@ benchmark project-m36-benchmark
                        InstanceSigs
                        KindSignatures
                        LambdaCase
-                       MonadFailDesugaring
                        MultiParamTypeClasses
                        MultiWayIf
                        NamedFieldPuns
