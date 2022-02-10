@@ -38,7 +38,8 @@ library
     mtl,
     uuid,
     word8,
-    quickcheck-instances
+    quickcheck-instances,
+    splitmix
 
 
 
