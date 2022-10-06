@@ -52,7 +52,7 @@ unit_insertRecord step = do
       liftIO $ assertBool "Inserted numbers did not match fetched numbers" (L.sort ps == L.sort ps1)
 
       --pure $ testEquality (eRa) ps
-
+    closeDb conn
 
 data User = User
   { userFirstName :: Text

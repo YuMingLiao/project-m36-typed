@@ -28,15 +28,15 @@ instance (Functor m) => Functor (GenT m) where
   fmap f m = GenT $ \r n -> fmap f $ unGenT m r n
 
 instance (Monad m) => Monad (GenT m) where
-  return a = GenT (\_ _ -> return a)
+-- return a = GenT (\_ _ -> return a)
   m >>= k = GenT $ \r n -> do
     let (r1, r2) = R.split r
     a <- unGenT m r1 n
     unGenT (k a) r2 n
 --  fail msg = GenT (\_ _ -> fail msg)
 
-instance (Functor m, Monad m) => Applicative (GenT m) where
-  pure = return
+instance (Monad m) => Applicative (GenT m) where
+  pure a = GenT (\_ _ -> pure a)
   (<*>) = ap
 
 instance MonadTrans GenT where
@@ -57,7 +57,7 @@ instance (MonadReader env m) => MonadReader env (GenT m) where
 
 class (Applicative g, Monad g) => RandomM g where
   randomM :: (R.Random a) => g a
-instance (Applicative m, Monad m) => RandomM (GenT m) where
+instance (Monad m) => RandomM (GenT m) where
   randomM = GenT $ \g _ -> pure . fst . R.random $ g
 
 {- -- liftGen gen = GenT $ \r n -> return $ QC.unGen gen r n

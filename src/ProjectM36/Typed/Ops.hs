@@ -7,6 +7,7 @@ import qualified RIO.List as L
 import ProjectM36.Base
 import ProjectM36.Client
 import ProjectM36.Tupleable (Tupleable(..), toInsertExpr)
+import ProjectM36.Shortcuts
 import Data.Proxy()
 
 import Control.Monad.Except
@@ -100,10 +101,10 @@ insertT pName a = do
 
 
 insertBulkT :: forall db name a . (HasNamedDbType db name a) => Proxy name -> [a] -> UpdateM db [a]
-insertBulkT pName as = do
-  e <- liftEitherQ $ toInsertExpr as (showSymbol pName)
+insertBulkT pName xs = do
+  e <- liftEitherQ $ toInsertExpr xs (showSymbol pName)
   throwQ $ executeUpdate e
-  return as
+  return xs
 
 
 
@@ -111,4 +112,21 @@ fetchT :: forall db name a . (HasNamedDbType db name a) => Proxy name -> QueryM 
 fetchT pName = do
   res <- throwQ $ executeQuery (RelationVariable (showSymbol pName) ())
   liftEitherQ $ sequence $ map fromTuple (relationTuples res)
+
+-- If we have typed relational expr, constraints: All labels should be able to be found in db.
+fetchWhereT :: forall db name a. (HasNamedDbType db name a) => Proxy name -> RestrictionPredicateExpr -> QueryM db [a]
+fetchWhereT pName expr = do
+  res <- throwQ $ executeQuery (((RelationVariable (showSymbol pName) ())) @~ expr)
+  liftEitherQ $ sequence $ map fromTuple (relationTuples res)
+
+fetchTupleableT :: Tupleable a => RelationalExpr -> QueryM db [a]
+fetchTupleableT expr = do
+  res <- throwQ $ executeQuery expr
+  liftEitherQ $ sequence $ map fromTuple (relationTuples res)
+
+fetchRelationT :: RelationalExpr -> QueryM db Relation
+fetchRelationT expr = do
+  throwQ $ executeQuery expr
+
+
 
