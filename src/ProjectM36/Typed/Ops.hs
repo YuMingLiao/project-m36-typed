@@ -128,5 +128,7 @@ fetchRelationT :: RelationalExpr -> QueryM db Relation
 fetchRelationT expr = do
   throwQ $ executeQuery expr
 
-
+fetchDataFrameT :: DataFrameExpr -> QueryM db DataFrame
+fetchDataFrameT expr = do
+  throwQ $ executeQueryDF expr 
 

@@ -117,6 +117,7 @@ class (Monad m) => CanUpdateDb m where
 
 class (Monad m) => CanQueryDb m where
   executeQuery :: RelationalExpr -> m (Either RelationalError Relation)
+  executeQueryDF :: DataFrameExpr -> m (Either RelationalError DataFrame)
 
 class HasDbConnection a db where
   dbConnectionL :: Lens' (a db) (DbConnection db)
@@ -167,6 +168,11 @@ instance CanQueryDb (QueryM db) where
   executeQuery c = do
     DbConnection{..} <- QueryM $ view dbConnectionL
     runIOInQueryM $ executeRelationalExpr dbSession dbConnection c
+
+  executeQueryDF df = do
+    DbConnection{..} <- QueryM $ view dbConnectionL
+    runIOInQueryM $ executeDataFrameExpr dbSession dbConnection df
+
 
 
 
@@ -242,6 +248,11 @@ instance CanQueryDb (UpdateM db) where
   executeQuery c = do
     DbConnection{..} <- UpdateM $ view dbConnectionL
     runIOInUpdateM $ executeRelationalExpr dbSession dbConnection c
+
+  executeQueryDF df = do
+    DbConnection{..} <- UpdateM $ view dbConnectionL
+    runIOInUpdateM $ executeDataFrameExpr dbSession dbConnection df
+
 
 
 

@@ -113,6 +113,7 @@ data AddInclusionDependency (name :: Symbol) relEx1 relEx2
 
 
 data NoOperation
+data AddTypeConstructor a
 data Define (sym :: Symbol) a
 data UniqueConstraint (fields :: [Symbol]) relvar
 
