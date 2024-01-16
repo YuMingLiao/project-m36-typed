@@ -18,3 +18,4 @@ var/*
 *.stack-work
 *.sublime-project
 *.sublime-workspace
+.ghci
