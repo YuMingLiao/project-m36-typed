@@ -104,6 +104,12 @@ withTransactionUsingQ (sess, conn) strat dbm = do
       let successFunc = liftIO $ autoMergeToHead sess conn strat hn
       withTransactionQ sess conn dbm successFunc
 
+withTransactionUsingToQ :: (MonadUnliftIO m, ToDbErrorQ err, MonadReader env m, HasLogFunc env) => (SessionId, Connection) -> MergeStrategy -> Text -> m (Either err a) -> m (Either DbErrorQ a)
+withTransactionUsingToQ (sess, conn) strat hn dbm = do
+  let successFunc = liftIO $ autoMergeToHead sess conn strat hn
+  withTransactionQ sess conn dbm successFunc
+
+
 
 relationTuples :: Relation -> [RelationTuple]
 relationTuples (Relation _ ts) = asList ts
@@ -236,6 +242,13 @@ executeUpdateM (UpdateM a) = do
   DbConnection{..} <- view dbConnectionL
   s <- mkUpdateMState
   runRIO s $ withTransactionUsingQ (dbSession, dbConnection) UnionMergeStrategy (runGenT . runExceptT $ a)
+
+-- in multi-conns, transactions may be not a head. need to assign head name.
+executeUpdateToM :: (HasLogFunc (env db), HasDbConnection env db, MonadReader (env db) m, MonadIO m) => Text -> UpdateM db a -> m (Either DbErrorQ a)
+executeUpdateToM hn (UpdateM a) = do
+  DbConnection{..} <- view dbConnectionL
+  s <- mkUpdateMState
+  runRIO s $ withTransactionUsingToQ (dbSession, dbConnection) UnionMergeStrategy hn (runGenT . runExceptT $ a)
 
 
 
