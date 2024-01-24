@@ -19,3 +19,4 @@ var/*
 *.sublime-project
 *.sublime-workspace
 .ghci
+src/default.nix

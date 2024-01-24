@@ -1,5 +1,5 @@
 let
-  snack-build-project-m36 = false; 
+  snack-build-project-m36 = true; 
 project-m36 =
     import /root/project-m36-on-last-nixos/snack-for-project-m36/lib.nix;
 in {
@@ -23,6 +23,7 @@ in {
     "quickcheck-instances"
     "splitmix"
     "binary-instances"
+    "graph-trace"
   ] ++ (if snack-build-project-m36 then [] else ["project-m36"]);
   ghcOpts = [
     "-XHaskell2010"
@@ -66,6 +67,10 @@ in {
     "-XTypeOperators"
     "-XTypeSynonymInstances"
     "-XViewPatterns"
+    "-fplugin=Graph.Trace"
+    "-fplugin-opt=Graph.Trace:trace-all"
+    "-fno-full-laziness"
+    "-fno-cse"
   ];
   extensions = [ ];
 }

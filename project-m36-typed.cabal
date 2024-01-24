@@ -40,7 +40,8 @@ library
     word8,
     quickcheck-instances,
     splitmix,
-    binary-instances
+    binary-instances,
+    graph-trace
 
 
 
@@ -52,6 +53,10 @@ library
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
                        -Werror
+                       -fplugin=Graph.Trace
+                       -fplugin-opt=Graph.Trace:trace-all
+                       -fno-full-laziness
+                       -fno-cse
   default-language:    Haskell2010
   default-extensions:  BangPatterns
                        BinaryLiterals
