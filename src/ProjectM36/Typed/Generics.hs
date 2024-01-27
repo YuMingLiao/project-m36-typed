@@ -13,7 +13,7 @@ import Generics.SOP.Dict
 import GHC.TypeLits
 import Data.Kind
 --import Type.Reflection
--- import Data.Type.Equality
+import Data.Type.Equality
 
 showSymbol :: (KnownSymbol a) => proxy a -> T.Text
 showSymbol p = T.pack $ symbolVal p

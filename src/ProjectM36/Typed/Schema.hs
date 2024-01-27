@@ -24,6 +24,7 @@ import Test.QuickCheck.Arbitrary
 
 import GHC.TypeLits
 import Data.Kind
+import Data.Type.Equality
 
 class (KnownSymbol (AppRecordName a ), Generic a) => AppRecordMeta a where
   type AppRecordName a :: Symbol

@@ -30,6 +30,7 @@ import ProjectM36.Typed.TypeFunctions
 import ProjectM36.Typed.Generics
 import ProjectM36.Typed.Schema
 import ProjectM36.Typed.DB.Types
+import Data.Type.Equality
 
 
 class (Typeable a, SOP.Generic a, SOP.HasDatatypeInfo a, Tupleable a, Arbitrary a, Eq a, Show a) => IsDbType a

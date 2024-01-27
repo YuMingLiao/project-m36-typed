@@ -10,6 +10,7 @@ import GHC.TypeLits
 
 import ProjectM36.Typed.DB.Types
 import Data.Kind
+import Data.Type.Equality
 
 data Field name t = Field name t
 
