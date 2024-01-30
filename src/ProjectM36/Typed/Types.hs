@@ -10,6 +10,7 @@ import qualified System.Random as R
 import Test.QuickCheck.Arbitrary
 -- @todo remove this as we don't actually want these instances in the long run
 import Test.QuickCheck.Instances()
+import Graph.Trace
 
 newtype ETag = ETag UUID.UUID
   deriving (Eq, Ord, Show, Generic, Arbitrary)
