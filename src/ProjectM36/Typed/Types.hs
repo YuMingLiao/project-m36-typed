@@ -18,7 +18,7 @@ newtype ETag = ETag UUID.UUID
 
 -- @todo replace UUID with something else more cryptographically secure?
 
-randomEtag :: (R.RandomGen g) => g -> (ETag, g)
+-- randomEtag :: (R.RandomGen g) => g -> (ETag, g)
 randomEtag g =
   let (uid, nextG) = R.random g
   in (ETag uid, nextG)
@@ -47,7 +47,7 @@ safeIdFromByteString bs
 safeIdLength :: Int
 safeIdLength = 10
 
-randomSafeId :: (R.RandomGen g) => g -> (SafeId, g)
+-- randomSafeId :: (R.RandomGen g) => g -> (SafeId, g)
 randomSafeId gen =
   let (nextGen, ws) = (generateW8s safeIdLength gen)
       idStr = B.pack ws

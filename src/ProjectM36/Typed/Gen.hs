@@ -47,7 +47,7 @@ instance (MonadIO m) => MonadIO (GenT m) where
   liftIO = lift . liftIO
 
 
-mapGenT :: (m a -> n a) -> GenT m a -> GenT n a
+-- mapGenT :: (m a -> n a) -> GenT m a -> GenT n a
 mapGenT f (GenT fa) = GenT (\g i -> f (fa g i))
 
 

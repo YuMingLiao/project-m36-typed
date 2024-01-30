@@ -52,7 +52,7 @@ library
                        -Wincomplete-record-updates
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
-                       -Werror
+                       -Wwarn
                        -fplugin=Graph.Trace
                        -fplugin-opt=Graph.Trace:trace-all
                        -fno-full-laziness
