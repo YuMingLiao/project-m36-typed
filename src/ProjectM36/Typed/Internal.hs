@@ -142,7 +142,7 @@ instance (  ToRelationalExpr rel
           ) => ToRelationalExpr (Rename old new rel) where
   type RelationalExprT (Rename old new rel) = RelationalExpr
   type AvailableFields (Rename old new rel) = new ': (RemoveTypes '[old] (AvailableFields rel))
-  toRelationalExpr _ = Rename (showSymbol (Proxy :: Proxy old)) (showSymbol (Proxy :: Proxy new)) (toRelationalExpr (Proxy :: Proxy rel))
+  toRelationalExpr _ = Rename (S.singleton ((showSymbol (Proxy :: Proxy old)), (showSymbol (Proxy :: Proxy new)))) (toRelationalExpr (Proxy :: Proxy rel))
 
 
 
