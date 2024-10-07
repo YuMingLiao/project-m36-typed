@@ -1,7 +1,7 @@
 let
-  snack-build-project-m36 = false; 
+  snack-build-project-m36 = true; 
 project-m36 =
-    import /root/project-m36-on-last-nixos/snack-for-project-m36/lib.nix;
+    import /home/nixos/snack-for-project-m36/lib.nix;
 in {
   src = ./src;
   name = "project-m36-typed";

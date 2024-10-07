@@ -18,7 +18,7 @@ rec {
 # Alternatively you can provide you own `ghcWithPackages`, which should have
 # the same structure as that provided by
 # `pkgs.haskell.packages.<version>.ghcWithPackages:
-  ghcWithPackages = pkgs.haskell.packages.ghc924.ghcWithPackages;
+  ghcWithPackages = pkgs.haskell.packages.ghc965.ghcWithPackages;
 # Finally you can provide your own set of Nix packages, which should evaluate
 # to an attribute set:
   pkgs = import <nixpkgs> {};

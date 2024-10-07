@@ -19,3 +19,5 @@ var/*
 *.sublime-project
 *.sublime-workspace
 .ghci
+dist-newstyle
+result
