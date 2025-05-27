@@ -25,7 +25,7 @@ in {
     "binary-instances"
   ] ++ (if snack-build-project-m36 then [] else ["project-m36"]);
   ghcOpts = [
-    "-XHaskell2010"
+    "-XHaskell2010" # DeepSubsumption ix crucial for Execute.hs
     "-XBangPatterns"
     "-XBinaryLiterals"
     "-XConstraintKinds"
