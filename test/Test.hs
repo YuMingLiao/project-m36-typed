@@ -12,6 +12,7 @@ import qualified Generics.SOP as SOP
 import qualified Generics.SOP.Arbitrary as SOP
 import Test.QuickCheck as QC
 import Data.Proxy
+import ProjectM36.DatabaseContext
 
 main :: IO ()
 main = do
@@ -38,7 +39,7 @@ unit_insertRecord step = do
   let logOptions' = setLogUseTime True logOptions
   withLogFunc logOptions' $ \lf -> do
     step "Connecting to db"
-    eRes <-  connectProjectM36T lf (InProcessConnectionInfo NoPersistence emptyNotificationCallback []) dbSchema
+    eRes <-  connectProjectM36T lf (InProcessConnectionInfo NoPersistence emptyNotificationCallback [] basicDatabaseContext) dbSchema
     conn <- either (throwIO ) pure eRes
     runRIO (AppEnv lf conn) $ do
       (ps :: [PhoneNumber]) <- liftIO $ QC.generate $ sequence $ replicate 100 (arbitrary)
