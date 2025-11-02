@@ -97,7 +97,7 @@ library
 test-suite project-m36-typed-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Test.hs
+  main-is:             InProcess.hs
   ghc-options:         -Wall
                        -Wcompat
                        -Wincomplete-record-updates
